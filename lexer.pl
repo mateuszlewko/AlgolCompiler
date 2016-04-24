@@ -1,53 +1,62 @@
-% Pytania
-%% 1) Jak wyciągnać liczby / identyfikatory? (korzystając z predykatów number / identifier)
+%% :- module(while_parser, [parse/2]).
 
-% Słowa kluczowe
-tokens(Z) --> "and", !, tokens(Y), {Z = [and | Y]}.
-tokens(Z) --> "begin", !, tokens(Y), {Z = [begin | Y]}.
-tokens(Z) --> "call", !, tokens(Y), {Z = [call | Y]}.
-tokens(Z) --> "div", !, tokens(Y), {Z = [div | Y]}.
-tokens(Z) --> "do", !, tokens(Y), {Z = [do | Y]}.
-tokens(Z) --> "done", !, tokens(Y), {Z = [done | Y]}.
-tokens(Z) --> "else", !, tokens(Y), {Z = [else | Y]}.
-tokens(Z) --> "end", !, tokens(Y), {Z = [end | Y]}.
-tokens(Z) --> "fi", !, tokens(Y), {Z = [fi | Y]}.
-tokens(Z) --> "if", !, tokens(Y), {Z = [if | Y]}.
-tokens(Z) --> "local", !, tokens(Y), {Z = [local | Y]}.
-tokens(Z) --> "mod", !, tokens(Y), {Z = [mod | Y]}.
-tokens(Z) --> "not", !, tokens(Y), {Z = [not | Y]}.
-tokens(Z) --> "or", !, tokens(Y), {Z = [or | Y]}.
-tokens(Z) --> "procedure", !, tokens(Y), {Z = [procedure | Y]}.
-tokens(Z) --> "program", !, tokens(Y), {Z = [program | Y]}.
-tokens(Z) --> "read", !, tokens(Y), {Z = [read | Y]}.
-tokens(Z) --> "return", !, tokens(Y), {Z = [return | Y]}.
-tokens(Z) --> "then", !, tokens(Y), {Z = [then | Y]}.
-tokens(Z) --> "value", !, tokens(Y), {Z = [value | Y]}.
-tokens(Z) --> "while", !, tokens(Y), {Z = [while | Y]}.
-tokens(Z) --> "write", !, tokens(Y), {Z = [write | Y]}.
 
-% Operatory
-tokens(Z) --> "+", !, tokens(Y), {Z = [+ | Y]}.
-tokens(Z) --> "-", !, tokens(Y), {Z = [- | Y]}.
-tokens(Z) --> "<", !, tokens(Y), {Z = [< | Y]}.
-tokens(Z) --> ">", !, tokens(Y), {Z = [> | Y]}.
-tokens(Z) --> "<=", !, tokens(Y), {Z = [<= | Y]}.
-tokens(Z) --> ">=", !, tokens(Y), {Z = [>= | Y]}.
-tokens(Z) --> "=", !, tokens(Y), {Z = [= | Y]}.
+%% LEXER %% 
 
-tokens(Z) --> "<>", !, tokens(Y), {Z = [<> | Y]}.
-tokens(Z) --> ":=", !, tokens(Y), {Z = [:= | Y]}. 
-
-tokens(Z) --> " ", !, tokens(Y), {Z = Y}.
-
-% Symbole przystankowe
-tokens(Z) --> ",", !, tokens(Y), {Z = [+ | Y]}.
-tokens(Z) --> "(", !, tokens(Y), {Z = [- | Y]}.
-tokens(Z) --> ")", !, tokens(Y), {Z = [< | Y]}.
-
-% Identyfikatory
-tokens(Z) --> digit(D), !, number(D, N) !, tokens(Y), {Z = [N | Y]}.
-%% tokens(Z) --> digits(Ds), !, tokens(Y), {Z }.
-%% tokens(Z) --> identifier(Z, Id), !, tokens(Y), {Z = [Id | Y]}.
+lexer(Tokens) -->
+   white_space,
+   (  (  ":=",      !, { Token = tokAssgn }
+	  ;  ";",       !, { Token = tokSColon }
+	  ;  "(",       !, { Token = tokLParen }
+	  ;  ")",       !, { Token = tokRParen }
+	  ;  "+",       !, { Token = tokPlus }
+	  ;  "-",       !, { Token = tokMinus }
+	  ;  "*",       !, { Token = tokTimes }
+	  ;  "=",       !, { Token = tokEq }
+	  ;  "<>",      !, { Token = tokNeq }
+	  ;  "<=",      !, { Token = tokLeq }
+	  ;  "<",       !, { Token = tokLt }
+	  ;  ">=",      !, { Token = tokGeq }
+	  ;  ">",       !, { Token = tokGt }
+	  ;  ",", 		!, { Token = tokComma} 
+	  ;  digit(D),  !,
+			number(D, N),
+			{ Token = tokNumber(N) }
+	  ;  letter(L), !, identifier(L, Id),
+			{  member((Id, Token), [ (and, tokAnd),
+									 (begin, tokBeg),
+									 (call, tokCall),								
+									 (div, tokDiv),
+									 (do, tokDo),
+									 (done, tokDone),
+									 (else, tokElse),
+									 (end, tokEnd),
+									 (fi, tokFi),
+									 (if, tokIf),
+									 (local, tokLocal),
+									 (mod, tokMod),
+									 (not, tokNot),
+									 (or, tokOr),
+									 (procedure, tokProcedure),
+									 (program, tokProgram),
+									 (read, tokRead),
+									 (return, tokReturn),
+									 (then, tokThen),
+									 (value, tokValue),
+									 (while, tokWhile),
+									 (write, tokWrite)]),
+			   !
+			;  Token = tokVar(Id)
+			}
+	  ;  [_],
+			{ Token = tokUnknown }
+	  ),
+	  !,
+		 { Tokens = [Token | TokList] },
+	  lexer(TokList)
+   ;  [],
+		 { Tokens = [] }
+   ).
 
 white_space -->
    [Char], { code_type(Char, space) }, !, white_space.
@@ -56,7 +65,7 @@ white_space -->
    
 digit(D) -->
    [D],
-      { code_type(D, digit) }.
+	  { code_type(D, digit) }.
 
 digits([D|T]) -->
    digit(D),
@@ -67,7 +76,7 @@ digits([]) -->
 
 number(D, N) -->
    digits(Ds),
-      { number_chars(N, [D|Ds]) }.
+	  { number_chars(N, [D|Ds]) }.
 
 letter(L) -->
    [L], { code_type(L, alpha) }.
@@ -78,10 +87,147 @@ alphanum([]) -->
    [].
 
 identifier(L, Id) -->
-   alphanum(As), { atom_codes(Id, [L|As]) }.
+   alphanum(As),
+	  { atom_codes(Id, [L|As]) }.
 
+%% PARSER %% 
 
-% Anything not mentioned above gets its own token,
-% including single-character identifiers.
-tokens(Z) --> [C], tokens(Y), {name(X, [C]), Z = [X | Y]}.
-tokens(Z) --> [], {Z = []}.
+/*
+   SYNTAX ANALYSIS
+
+   Context-free grammar:
+
+	  program --> instruction | instruction program
+	  instruction --> "while" bool_expr "do" program "done"
+					| "if" bool_expr "then" program "else" program "fi"
+					| "if" bool_expr "then" program "fi"
+					| "skip" ";"
+					| variable ":=" artith_expr ";"
+	  arith_expr --> arith_expr additive_op summand | summand
+	  summand --> summand multiplicative_op factor | factor
+	  factor --> "(" arith_expr ")" | constant | variable
+	  additive_op --> "+" | "-"
+	  multiplicative_op --> "*" | "div" | "mod"
+	  bool_expr --> bool_expr "or" disjunct | disjunct
+	  disjunct --> disjunct "and" conjunct | conjunct
+	  conjunct --> "(" bool_expr ")" | "not" conjunct | "true" | "false"
+				 | arith_expr rel_op arith_expr
+	  rel_op --> "=" | "<>" | "<" | "<=" | ">" | ">="
+
+   To get a complete parser it suffices to replace character terminals
+   in the grammar above with lexical tokens, eliminate left recursion and
+   add appropriate semantic actions generating abstract syntax trees.
+*/
+
+:- op(990, xfy, ';;').
+:- op(900, xfy, :=).
+:- op(820, xfy, and).
+:- op(840, xfy, or).
+:- op(700, xfy, <=).
+:- op(700, xfy, <>).
+
+program(Ast) -->
+   instruction(Instr),
+   (  program(Rest), !,
+		 { Ast = (Instr ';;' Rest) }
+   ;  [],
+		 { Ast = Instr }
+   ).
+
+instruction(Instr) -->
+   (  [tokWhile], !, bool_expr(Bool), [tokDo], program(Body), [tokDone],
+		  { Instr = while(Bool, Body) }
+   ;  [tokIf], !, bool_expr(Bool), [tokThen], program(ThenPart),
+		 (  [tokElse], !, program(ElsePart), [tokFi],
+			   { Instr = if(Bool, ThenPart, ElsePart) }
+		 ;  [tokFi],
+			   { Instr = if(Bool, ThenPart) }
+		 )
+   ;  [tokSkip], !, [tokSColon],
+		 { Instr = skip }
+   ;  [tokVar(Var), tokAssgn], arith_expr(Expr), [tokSColon],
+		 { Instr = (Var := Expr) }
+   ).
+
+arith_expr(Expr) -->
+   summand(Summand), arith_expr(Summand, Expr).
+
+arith_expr(Acc, Expr) -->
+   additive_op(Op), !, summand(Summand),
+	  { Acc1 =.. [Op, Acc, Summand] }, arith_expr(Acc1, Expr).
+arith_expr(Acc, Acc) -->
+   [].
+
+summand(Expr) -->
+   factor(Factor), summand(Factor, Expr).
+
+summand(Acc, Expr) -->
+   multiplicative_op(Op), !, factor(Factor),
+	  { Acc1 =.. [Op, Acc, Factor] }, summand(Acc1, Expr).
+summand(Acc, Acc) -->
+   [].
+
+factor(Expr) -->
+   (  [tokLParen], !, arith_expr(Expr), [tokRParen]
+   ;  [tokNumber(N)], !, { Expr = constant(N) }
+   ;  [tokVar(Var)], { Expr = variable(Var) }
+   ).
+
+bool_expr(Bool) -->
+   disjunct(Disjunct), bool_expr(Disjunct, Bool).
+
+bool_expr(Acc, Bool) -->
+   [tokOr], !, disjunct(Disjunct),
+	  { Acc1 =.. [or, Acc, Disjunct] }, bool_expr(Acc1, Bool).
+bool_expr(Acc, Acc) -->
+   [].
+
+disjunct(Disjunct) -->
+   conjunct(Conjunct), disjunct(Conjunct, Disjunct).
+
+disjunct(Acc, Disjunct) -->
+   [tokAnd], !, conjunct(Conjunct),
+	  { Acc1 =.. [and, Acc, Conjunct] }, disjunct(Acc1, Disjunct).
+disjunct(Acc, Acc) -->
+   [].
+
+conjunct(Conjunct) -->
+   (  [tokLParen], !, bool_expr(Conjunct), [tokRParen]
+   ;  [tokNot], !, conjunct(NotConjunct),
+		 { Conjunct = not(NotConjunct) }
+   ;  [tokTrue], !,
+		 { Conjunct = true }
+   ;  [tokFalse], !,
+		 { Conjunct = false }
+   ;  arith_expr(LExpr), rel_op(Op), arith_expr(RExpr),
+		 { Conjunct =.. [Op, LExpr, RExpr] }
+   ).
+
+additive_op(+) -->
+   [tokPlus], !.
+additive_op(-) -->
+   [tokMinus].
+
+multiplicative_op(*) -->
+   [tokTimes], !.
+multiplicative_op(//) -->
+   [tokDiv], !.
+multiplicative_op(mod) -->
+   [tokMod].
+
+rel_op(=) -->
+   [tokEq], !.
+rel_op(<>) -->
+   [tokNeq], !.
+rel_op(<) -->
+   [tokLt], !.
+rel_op(<=) -->
+   [tokLeq], !.
+rel_op(>) -->
+   [tokGt], !.
+rel_op(>=) -->
+   [tokGeq].
+
+parse(CharCodeList, Absynt) :-
+   phrase(lexer(TokList), CharCodeList),
+   phrase(program(Absynt), TokList).
