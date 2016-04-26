@@ -1,3 +1,6 @@
 if 3 <> 2 then v := true ; w := false else v := true endif 
 
-n := 10; f := 1; while n > 1 do f := n * f; n := n - 1; done
+n := 10; f := 1; while n > 1 do
+         f := n * f;
+         n := n - 1;
+      done
