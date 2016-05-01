@@ -1,5 +1,7 @@
 %% LEXER %% 
 % TODO: Dopisać obsługe komentarzy
+
+%% Na bazie while_parsera z KNO
 lexer(Tokens) -->
    white_space,
    (  (  ":=",      !, { Token = tokAssgn }
@@ -161,7 +163,7 @@ instruction(Instr) --> ([tokWhile], !, bool_expr(Bool), [tokDo], complex_instruc
 
 %% ;  [tokSkip], !, [tokSColon], { Instr = skip };
 
-arith_expr(Expr) --> summand(Expr), !, { print("expr:"), nl, print(Expr), nl}. % arith_expr(Summand, Expr).
+arith_expr(Expr) --> summand(Expr), !. % arith_expr(Summand, Expr).
 arith_expr(Expr) --> arith_expr(E), additive_op(Op), summand(S), {Expr =.. [Op, E, S] }.
 %% arith_expr(Acc, Expr) --> additive_op(Op), !, summand(Summand), { Acc1 =.. [Op, Acc, Summand] }, arith_expr(Acc1, Expr).
 %% arith_expr(Acc, Acc) --> [].
