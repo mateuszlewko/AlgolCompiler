@@ -36,3 +36,7 @@ const, 0, swapd, const, s, swapa, swapd, store, const,
 5, swapd, const, x, swapa, swapd, store, const, 
 1, syscall, swapd, const, x, swapa, swapd, store, const, 
 currPos(- 17-22-1), jump, const, var(s), swapa, load, swapd, const, 2, syscall].
+
+% result v2:
+C = [const, 0, swapd, const, var(s), swapa, swapd, store, const, 1, syscall, swapd, const, var(x), swapa, swapd, store, const, 0, swapd, const, currPos(21, 7), swapa, swapd, store, const, currPos(2), jump, nop, const, var(x), swapa, load, swapd, const, currPos(21, 7), swapa, load, sub, swapd, const, currPos(6), swapa, swapd, branchz, const, 65535, swapd, const, currPos(17+3+3+1), swapa, swapd, branchz, const, 5, swapd, const, var(x), swapa, swapd, store, const, 1, syscall, swapd, const, var(x), swapa, swapd, store, const, currPos(- 17-36-1), jump, const, var(s), swapa, load, swapd, const, 2, syscall],
+H = [9, 0, 5, 9, 0, 4, 5, 3, 9, 1, 1, 5, 9, 1, 4, 5, 3, 9, 0, 5, 9, 28, 4, 5, 3, 9, 28, 8, 0, 9, 1, 4, 2, 5, 9, 28, 4, 2, b, 5, 9, 47, 4, 5, 6, 9, 65535, 5, 9, 73, 4, 5, 6, 9, 5, 5, 9, 1, 4, 5, 3, 9, 1, 1, 5, 9, 1, 4, 5, 3, 9, 17, 8, 9, 0, 4, 2, 5, 9, 2, 1] 
