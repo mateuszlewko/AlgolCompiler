@@ -147,7 +147,7 @@ bool_expr(B) --> conjunct(B), !.
 bool_expr(B) --> bool_expr(B), [tokOr], conjunct(C), { B = or(B, C) }.
 
 conjunct(C) --> condition(C), !.
-conjunct(C) --> conjunct(Coj), [tokAnd], condition(Con), { C = not(or(not(Coj), not(Con)) }.
+conjunct(C) --> conjunct(Coj), [tokAnd], condition(Con), { C = not(or(not(Coj), not(Con))) }.
 
 condition(C) --> rel_expr(C), !.
 condition(C) --> [tokNot], rel_expr(R), { C = not(R) }.
@@ -168,6 +168,11 @@ rel_op(<) --> [tokLt], !.
 rel_op(<=) --> [tokLeq], !.
 rel_op(>) --> [tokGt], !.
 rel_op(>=) -->[tokGeq].
+
+stringCompile(String, Code, Assemb) :-
+	string_codes(String, CharList),
+	parse(CharList, Absynt),
+	assembler(Absynt, Code, Assemb).
 
 parse(CharCodeList, Absynt) :-
    phrase(lexer(TokList), CharCodeList),
@@ -211,7 +216,7 @@ addToDict(Dict, Key, Value, Dict.put(Key, Value)).
 setVarAdresses([], [], D, Cnt).
 setVarAdresses([var(V) | Rest], [Var | Result], VarsDict, Cnt) :- !,
 	(Var = VarsDict.get(V), NextVarsDict = VarsDict, NextCnt = Cnt;
-	Var = Cnt, addToDict(VarsDict, V, Cnt, NextVarsDict), NextCnt is Cnt + 1), !,
+	Var is 2^16 - Cnt - 1, addToDict(VarsDict, V, Var, NextVarsDict), NextCnt is Cnt + 1), !,
 	setVarAdresses(Rest, Result, NextVarsDict, NextCnt).
 
 setVarAdresses([Cmd | Rest], [Cmd | Result], VarsDict, Cnt) :- setVarAdresses(Rest, Result, VarsDict, Cnt).
@@ -263,7 +268,7 @@ negativeNumber(X, N) :- N is 2^16 - X.
 % jeśli trzeba ustaw ACC na -1 i przenieś do DR
 % powróć z wynikiem z DR do ACC (wspólne dla obu warunków)
 negateACC(Code) :-
-	negativeNumber(-1, MinusOne),
+	negativeNumber(1, MinusOne),
 	Code = [swapd, const, currPos(10), swapa, swapd, branchz, const, 0, swapd, const, 
 			currPos(5), jump, const, MinusOne, swapd, swapd].
 
@@ -345,7 +350,7 @@ encode(while(Cond, Instrs), Code) :-
 	append(InstrCmds, [const, currPos(-InstrCnt - CmdsCnt - 1), jump], EndingCmds),
 	append(Cmds, EndingCmds, Code).
 
-encode(if(Bool, ThenPart, ElsePart), Code) :- 
+encode(if(Bool, ThenPart, ElsePart), Code) :-  !,
 	encode(Bool, BoolTempCmds),
 	encode(ElsePart, ElseCmds),
 	length(ElseCmds, ElseCnt),
@@ -363,7 +368,7 @@ encode(if(Bool, ThenPart), Code) :-
 	encode(ThenPart, ThenTempCmds),
 	length(ThenCmds, ThenCnt),
 	append(BoolTempCmds, [swapd, const, currPos(4 + ThenCnt), swapa, swapd, branchz], BoolCmds),
-	append(BoolCmds, ThenPart, Code),
+	append(BoolCmds, ThenPart, Code).
 
 
 %% OPERATORY RELACYJNE %%
@@ -373,7 +378,7 @@ encode(if(Bool, ThenPart), Code) :-
 % i przeskocz ustawianie ACC na -1 ( -1 == true)
 encode(<>(L, R), Code) :- 
 	arithm_encode(L, R, sub, Cmds),
-	negativeNumber(-1, MinusOne),
+	negativeNumber(1, MinusOne),
 	append(Cmds, [swapd, const, currPos(6), swapa, swapd, branchz, const, MinusOne], Code).
 
 % Oblicz L <> R, zaneguj ACC
@@ -382,7 +387,7 @@ encode(=(L, R), Code) :-
 	negateACC(Neg),
 	append(Cmds, Neg, Code).
 	%% arithm_encode(L, R, sub, Cmds),
-	%% negativeNumber(-1, MinusOne),
+	%% negativeNumber(1, MinusOne),
 	%% append(Cmds, [swapd, const, currPos(10), swapa, swapd, branchz, const, 0, swapd, const, currPos(5), jump,
 	%% 					const, MinusOne, swapd, swapd], Code).
 
@@ -390,7 +395,7 @@ encode(=(L, R), Code) :-
 % Jeśli ACC < 0 to przeskocz ustawianie ACC na 0 (ACC < 0 to true)
 encode(<(L, R), Code) :-
 	arithm_encode(L, R, sub, Cmds),
-	negativeNumber(-1, MinusOne),
+	negativeNumber(1, MinusOne),
 	append(Cmds, [swapd, const, currPos(6), swapa, swapd, branchn, const, 0], Code).
 
 encode(>(L, R), Code) :- encode(<(R, L), Code).
