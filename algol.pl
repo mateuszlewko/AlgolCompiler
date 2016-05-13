@@ -77,14 +77,14 @@ identifier(L, Id) --> alphanum(As), { atom_codes(Id, [L | As]) }.
 %% PARSER %% 
 %% TODO: Łączenie operatorów w lewo (teraz łączy w prawo)
 
-program(P) --> [tokProgram, tokName(Name)], block(P).
+program(P) --> [tokProgram, tokName(Name)], block(P, global).
 
-block(B) --> declarations(D), [tokBeg], compound_instruction(CI), [tokEnd], { B = blck(D, CI) }.
+block(B, Namespace) --> declarations(D, Namespace), [tokBeg], compound_instruction(CI, Namespace), [tokEnd], { B = blck(D, CI) }.
 
-declarations(D) --> [], { D = [] }.
+declarations(D, Namespace) --> [], { D = [] }.
 declarations(decls(D)) --> declaration(Dec), declarations(Decs), { append(Dec, Decs, D) }.
 declaration(D) --> declarator(D).
-declaration(D) --> procedure(D).
+declaration(D) --> procedure(P), { D = [P]}.
 declarator(D) --> [tokLocal], variables(D).
 
 %% vars(A, V, B) :- once(variables(A, V, B)). % przyda się pózniej
@@ -92,13 +92,13 @@ variables(V) --> variable(Var), { V = [Var]}.
 variables(V) --> variable(Var), [tokComma], variables(Vars), { append([Var], Vars, V) }.
 variable(var(V)) --> [tokName(V)].
 
-procedure(P) --> [tokProcedure, tokName(Id)], [tokLParen], formal_args(FAs), [tokRParen], block(Bl), { P = proc(Id, FAs, Bl) }.
+procedure(P) --> [tokProcedure, tokName(Id), tokLParen], formal_args(FAs), [tokRParen], block(Bl), { P = proc(Id, FAs, Bl) }.
 
 formal_args(FAs) --> [], { FAs = [] }.
 formal_args(FAs) --> formal_args_series(FAs).
 formal_args_series(FAS) --> formal_arg(FAS).
 formal_args_series(FAS) --> formal_arg(FA), [tokComma], formal_args_series(FASs), { append(FA, FASs, FAS) }.
-formal_arg(FA) --> [tokValue, tokName(Var)], { FA = [byValueArg(Var)] }.
+formal_arg(FA) --> [tokValue, tokName(Var)], !, { FA = [byValueArg(Var)] }.
 formal_arg(FA) --> [tokName(Var)], { FA = [byNameArg(Var)] }. 
 
 %% compound_instruction(CI) --> [], { CI = []}.
@@ -126,28 +126,30 @@ summand(Expr) --> factor(Factor), multiplicative_op(Op), !, summand(Summ), { Exp
 
 factor(Expr) --> simple_expr(Expr), !.
 factor(Expr) --> [tokMinus], simple_expr(-(Expr)).
-simple_expr(Expr) --> atomic_expr(Expr), !.
+simple_expr(Expr) --> atomic_expr(Expr), !, { print("simple expr enter"), nl}.
 simple_expr(Expr) --> [tokLParen], arith_expr(E), [tokRParen], { Expr = (E) }.
 
-atomic_expr(Expr) --> variable(Expr), !.%, { print(Expr), nl}.
-atomic_expr(Expr) --> procedure_call(Expr), !.
+atomic_expr(Expr) --> procedure_call(Expr).
+atomic_expr(Expr) --> variable(Expr), { print("atomic var enter"), nl, print(Expr), nl}.
 atomic_expr(num(Expr)) --> [tokNumber(Expr)]. %, { Expr = num(N) }.
 
-procedure_call(PC) --> [tokName(Name), tokLParen], factual_args(FAs), [tokRParen], { PC = proc_call(Name, FAs) }.
+procedure_call(PC) --> [tokName(Name), tokLParen], factual_args(FAs), [tokRParen], 
+	{ 	print("Proc call enter"), nl,
+		PC = proc_call(Name, FAs), print(PC), nl }.
 
-factual_args(FAs) --> [].
+factual_args(FAs) --> [], { FAs = [], print("empty fac args enter"), nl}, !.
 factual_args(FAs) --> factual_args_series(FAs).
 
-factual_args_series(FAS) --> factual_arg(FA), { FAS = [FA] }.
+factual_args_series(FAS) --> factual_arg(FA), !, { FAS = [FA] }.
 factual_args_series(FAS) --> factual_arg(FA), [tokComma], factual_args_series(FASs), { append([FA], FASs, FAS) }.
 
 factual_arg(FA) --> arith_expr(FA).
 
 bool_expr(B) --> conjunct(B), !.
-bool_expr(B) --> bool_expr(B), [tokOr], conjunct(C), { B = or(B, C) }.
+bool_expr(B) --> conjunct(C), [tokOr], bool_expr(Be), { B = or(C, Be) }.
 
 conjunct(C) --> condition(C), !.
-conjunct(C) --> conjunct(Coj), [tokAnd], condition(Con), { C = not(or(not(Coj), not(Con))) }.
+conjunct(C) --> condition(Con), [tokAnd], conjunct(Coj), { C = not(or(not(Con), not(Coj))) }.
 
 condition(C) --> rel_expr(C), !.
 condition(C) --> [tokNot], rel_expr(R), { C = not(R) }.

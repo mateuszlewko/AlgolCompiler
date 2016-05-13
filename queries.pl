@@ -15,6 +15,18 @@ string_codes("program Suma local x, s begin s := 0; read x; while x <> 0 do s:= 
 
 string_codes("program Suma local x, s begin s := 0; read x; while x <> 0 do s:= s + x; read x; done; write s end", S), phrase(lexer(TokList), S).
 
+% "program test local s procedure one () begin write 5; return 1 end begin read s; if s + one() > 2 then write one() fi write one() - 1; end"
+
+%% string_codes("program test local s procedure one () begin write 5; return 1 end begin read s; if s + one() > 2 then write one(); fi write one() - 1 end", S), phrase(lexer(TokList), S).
+% [tokProgram, tokName(test), tokLocal, tokName(s), tokProcedure, tokName(one), tokLParen, tokRParen, tokBeg, tokWrite, tokNumber(5), tokSColon, tokReturn, tokNumber(1), tokEnd, tokBeg, tokRead, tokName(s), tokSColon, tokIf, tokName(s), tokPlus, tokName(one), tokLParen, tokRParen, tokGt, tokNumber(2), tokThen, tokWrite, tokName(one), tokLParen, tokRParen, tokFi, tokWrite, tokName(one), tokLParen, tokRParen, tokMinus, tokNumber(1), tokEnd]
+%% string_codes("program test local s procedure one () begin write 5; return 1 end begin read s end", S), phrase(lexer(TokList), S).
+
+%% phrase(program(X), [tokProgram, tokName(test), tokLocal, tokName(s), tokProcedure, tokName(one), tokLParen, tokRParen, tokBeg, tokWrite, tokNumber(5), tokSColon, tokReturn, tokNumber(1), tokEnd, tokBeg, tokRead, tokName(s), tokSColon, tokIf, tokName(s), tokPlus, tokName(one), tokLParen, tokRParen, tokGt, tokNumber(2), tokThen, tokWrite, tokName(one), tokLParen, tokRParen, tokSColon, tokFi, tokWrite, tokName(one), tokLParen, tokRParen, tokMinus, tokNumber(1), tokEnd]).
+% result:
+string_codes("program test local s procedure one () begin write 5; return 1 end begin read s; if s + one() > 2 then write one() fi; write one() - 1 end", S), phrase(lexer(TokList), S).
+[tokProgram, tokName(test), tokLocal, tokName(s), tokProcedure, tokName(one), tokLParen, tokRParen, tokBeg, tokWrite, tokNumber(5), tokSColon, tokReturn, tokNumber(1), tokEnd, tokBeg, tokRead, tokName(s), tokSColon, tokIf, tokName(s), tokPlus, tokName(one), tokLParen, tokRParen, tokGt, tokNumber(2), tokThen, tokWrite, tokName(one), tokLParen, tokRParen, tokFi, tokSColon, tokWrite, tokName(one), tokLParen, tokRParen, tokMinus, tokNumber(1), tokEnd].
+
+phrase(program(P), [tokProgram, tokName(test), tokLocal, tokName(s), tokProcedure, tokName(one), tokLParen, tokRParen, tokBeg, tokWrite, tokNumber(5), tokSColon, tokReturn, tokNumber(1), tokEnd, tokBeg, tokRead, tokName(s), tokSColon, tokIf, tokName(s), tokPlus, tokName(one), tokLParen, tokRParen, tokGt, tokNumber(2), tokThen, tokWrite, tokName(one), tokLParen, tokRParen, tokFi, tokSColon, tokWrite, tokName(one), tokLParen, tokRParen, tokMinus, tokNumber(1), tokEnd]).
 
 phrase(declarations(X), [tokLocal, tokName(tr), tokProcedure, tokName(func), tokLParen, tokName(y), tokComma, tokName(x), tokRParen, tokLocal, tokName(varT), tokBeg, tokName(y), tokAssgn, tokNumber(2), tokEnd]). 
 
