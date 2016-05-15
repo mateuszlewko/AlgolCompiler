@@ -270,8 +270,16 @@ getDeclarations(blck([var(V) | Rest], _), [V | VarDecls], ProcDecls) :- !,
 getDeclarations(blck([proc(Name, Args, blck(BlckDecls, Code)) | Rest], _), VarDecls, ProcDecls) :-
 	getDeclarations(blck(BlckDecls, Code), VarDeclsBlck, ProcDeclsBlck),
 	getDeclarations(blck(Rest, _), VarDeclsNext, ProcDeclsNext),
-	append(VarDeclsBlck, VarDeclsNext, VarDecls),
-	append([(Name, Args, Code) | ProcDeclsBlck], ProcDeclsNext, ProcDecls).
+	append(VarDeclsBlck, VarDeclsNext, VarDeclsTemp),
+	append([(Name, Args, Code) | ProcDeclsBlck], ProcDeclsNext, ProcDecls),
+	getDeclarations(Args, VarDeclsArgs, _),
+	append(VarDeclsArgs, VarDeclsTemp, VarDecls).
+
+getDeclarations([], [], []).
+getDeclarations([byValueArg(Var) | Rest], [Var | VarDecls], ProcDecls) :-
+	getDeclarations(Rest, VarDecls, ProcDecls).
+getDeclarations([byNameArg(Var) | Rest], VarDecls, ProcDecls) :-
+	getDeclarations(Rest, VarDecls, ProcDecls).
 
 makeProcDeclsDict([], d{}) :- !.
 makeProcDeclsDict([(Name, Args, Code) | Rest], Dict) :-
@@ -422,6 +430,27 @@ replaceLabelPos(Name, [Cmd | Rest], Pos, [Cmd | Result], Cnt) :-
 	NextCnt is Cnt + 1,
 	replaceLabelPos(Name, Rest, Pos, Result, NextCnt).
 
+replace([],[], PrevAtom, NextAtom).
+replace([H | T], [NextH | NextT], PrevAtom, NextAtom):-
+    (
+    	H == PrevAtom 
+    	-> NextH = NextAtom;  
+    	replace(H, NextH, PrevAtom, NextAtom) 
+    ),
+	replace(T, NextT, PrevAtom, NextAtom).
+
+replace(L, R, PrevAtom, NextAtom):-
+	L =.. [Functor | ArgsL],
+	replace(ArgsL, ArgsR, PrevAtom, NextAtom),
+	R =.. [Functor | ArgsR].
+
+%% replace(X,Y,X,Y) :- !.
+%% replace(X,Y,S,R) :-
+%%     S =.. [F|As], maplist(replace(X,Y),As,Rs), R =.. [F|Rs], !.
+%% replace(_,_,U,U).
+
+%% TODO: Zapisywanie wartości do argumentów by value
+%% TODO: Argumenty by name
 encode(proc_call(Name, Args), Code, ProcDecls) :-
 	%% print("name: "), nl, print(Name), nl,
 	%% getFromDict(Name, ProcDecls, Val).
