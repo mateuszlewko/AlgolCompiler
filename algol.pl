@@ -1,3 +1,9 @@
+
+algol16(Source, SextiumBin) :-
+	phrase(lexer(TokList), Source),
+	phrase(program(Absynt), TokList),
+	assembler(Absynt, Code, SextiumBin).
+
 %% LEXER %% 
 
 %% Na bazie while_parsera z KNO
@@ -78,7 +84,10 @@ letter(L) --> [L], { code_type(L, alpha) }.
 alphanum([A|T]) --> [A], { code_type(A, alnum) }, !, alphanum(T).
 alphanum([]) --> [].
 
-identifier(L, Id) --> alphanum(As), { atom_codes(Id, [L | As]) }.
+csymID([A|T]) --> [A], { code_type(A, csym) }, !, csymID(T).
+csymID([]) --> [].
+
+identifier(L, Id) --> csymID(As), { atom_codes(Id, [L | As]) }.
 
 %% PARSER %% 
 
@@ -562,15 +571,26 @@ replace(L, R, PrevAtom, NextAtom):-
 %%     S =.. [F|As], maplist(replace(X,Y),As,Rs), R =.. [F|Rs], !.
 %% replace(_,_,U,U).
 
-loadProcedureArgs([], [], [], _) :- !.
-loadProcedureArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], Code, ProcDecls) :-
+encodeProcedureArgs([], [], [], [], _) :- !.
+encodeProcedureArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], Code, [ArgPos | ArgsAdresses], ProcDecls) :-
 	encode(Arg, ArgCmds, ProcDecls),
-	loadProcedureArgs(CallArgs, ProcArgs, LoadCmds, ProcDecls),
-	append(ArgCmds, [swapd, const, var(Var), swapa, swapd, store], Cmds),
+	storeAccToTemp(StoreCmds, ArgPos),
+	encodeProcedureArgs(CallArgs, ProcArgs, LoadCmds, ArgsAdresses, ProcDecls),
+	append(ArgCmds, StoreCmds, Cmds),
+	%% append(ArgCmds, [swapd, const, var(Var), swapa, swapd, store], Cmds),
 	append(LoadCmds, Cmds, Code).
 
-loadProcedureArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], Code, ProcDecls) :-
-	loadProcedureArgs(CallArgs, ProcArgs, Code, ProcDecls).
+encodeProcedureArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], Code, [doNothing | ArgsAdresses], ProcDecls) :-
+	encodeProcedureArgs(CallArgs, ProcArgs, Code, ArgsAdresses, ProcDecls).
+
+
+loadProcedureArgs([], [], [], []) :- !.
+loadProcedureArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], Code, [ArgPos | ArgsAdresses]) :-
+	loadProcedureArgs(CallArgs, ProcArgs, Cmds, ArgsAdresses),
+	append([const, ArgPos, swapa, load, swapd, const, var(Var), swapa, swapd, store], Cmds, Code).
+
+loadProcedureArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], Code, [doNothing | ArgsAdresses]) :-
+	loadProcedureArgs(CallArgs, ProcArgs, Code, ArgsAdresses).
 
 replaceByNameArgs([], [], P, P) :- !.
 replaceByNameArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], CurrentProc, ResultProc) :-
@@ -606,7 +626,10 @@ encode(proc_call(Name, CallArgs), Code, ProcDecls) :-
 	%% getFromDict(Name, ProcDecls, Val).
 	getMatchedFromDict(Name, ProcDecls, (ProcArgs, Proc)),
 	%% (ProcArgs, Proc) = ProcDecls.get(Name),
-	loadProcedureArgs(CallArgs, ProcArgs, LoadCmds, ProcDecls),
+	encodeProcedureArgs(CallArgs, ProcArgs, EncodeCmdsTemp, ArgsAdresses, ProcDecls),
+	loadProcedureArgs(CallArgs, ProcArgs, LoadCmdsTemp, ArgsAdresses),
+	append(EncodeCmdsTemp, LoadCmdsTemp, LoadCmds),
+
 	replaceByNameArgs(CallArgs, ProcArgs, Proc, ResultProc),
 	
 	print("proc:"), nl, print(Proc), nl,
@@ -684,14 +707,12 @@ arithm_encode(L, R, Cmd, Code, ProcDecls) :-
 	append(RCmdsTemp, [swapd, const, VarPos, swapa, load, Cmd], RCmds),
 	append(LCmds, RCmds, Code).
 
-%% TODO: Operator modulo (mod(L, R))
 encode(-(R), Code, ProcDecls) :- arithm_encode(num(0), R, sub, Code, ProcDecls).
-
 encode(L + R, Code, ProcDecls) :- arithm_encode(L, R, add, Code, ProcDecls).
 encode(L - R, Code, ProcDecls) :- arithm_encode(L, R, sub, Code, ProcDecls).
 encode(div(L, R), Code, ProcDecls) :- arithm_encode(L, R, div, Code, ProcDecls).
 encode(L * R, Code, ProcDecls) :- arithm_encode(L, R, mul, Code, ProcDecls).
-
+encode(mod(L, R), Code, ProcDecls) :- encode(L - (div(L, R) * R), Code, ProcDecls).
 
 %% OPERATORY LOGICZNE %%
 
