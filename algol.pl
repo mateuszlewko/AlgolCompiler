@@ -234,7 +234,7 @@ addToDict(Dict, Key, Value, Dict.put(Key, Value)).
 
 setVarAdresses([], [], D, Cnt).
 setVarAdresses([var(V) | Rest], [Var | Result], VarsDict, Cnt) :- !,
-	(Var = VarsDict.get(V), NextVarsDict = VarsDict, NextCnt = Cnt;
+	(getMatchedFromDict(V, VarsDict, Var), NextVarsDict = VarsDict, NextCnt = Cnt;
 	Var is 2^16 - Cnt - 1, addToDict(VarsDict, V, Var, NextVarsDict), NextCnt is Cnt + 1), !,
 	setVarAdresses(Rest, Result, NextVarsDict, NextCnt).
 
@@ -265,8 +265,6 @@ setSymbols([Cmd | Rest], [CmdCode | Result], Pos) :-
 %% 	\+ lookupCmdCode(Cmd, CmdCode),
 %% 	setSymbols(Rest, Result, NextPos).
 
-%% TODO: Matchowanie zmiennych nie lokalnych 
-
 getDeclarations(blck([], _), [], []) :- !.
 getDeclarations(blck([var(V) | Rest], _), [V | VarDecls], ProcDecls) :- !,
 	getDeclarations(blck(Rest, _), VarDecls, ProcDecls).
@@ -292,7 +290,7 @@ makeProcDeclsDict([(Name, Args, Code) | Rest], Dict) :-
 assembler(Prog, Code, NonHex) :-
 	getDeclarations(Prog, VarDecls, ProcDecls),
 	makeProcDeclsDict(ProcDecls, ProcDeclsDict),
-	print(ProcDeclsDict), nl,
+	print("PROCS DICT"), nl, print(ProcDeclsDict), nl,
 	encode(Prog, Code, ProcDeclsDict),
 	setJumpPos(Code, 0),
 	setVarAdresses(Code, VarsWithAdresses, d{}, 0),
@@ -470,10 +468,32 @@ replaceByNameArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], CurrentProc, Re
 replaceByNameArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], CurrentProc, ResultProc) :-
 	replaceByNameArgs(CallArgs, ProcArgs, CurrentProc, ResultProc).
 
+without_last([_], []).
+without_last([X|Xs], [X|WithoutLast]) :- 
+    without_last(Xs, WithoutLast).
+
+% predykat znajduje w słowniku klucz lub klucz który jest 
+% najdłuszym prefiksem tego klucza i konkatenacją ostatniego członu
+
+getMatchedFromDict(Key, Dict, Value) :-
+	Value = Dict.get(Key), !.
+
+getMatchedFromDict(Key, Dict, Value) :-
+	atomic_list_concat(KeyPath, '|', Key),
+	last(KeyPath, TrueName),
+	select(TrueName, KeyPath, ShorterKeyPath),
+
+	without_last(ShorterKeyPath, NextKeyPath),
+	atomic_list_concat(NextKeyPath, '|', ShorterKeyAtom),
+	atomic_list_concat([ShorterKeyAtom, TrueName], '|', NextKey),
+
+	getMatchedFromDict(NextKey, Dict, Value).
+
 encode(proc_call(Name, CallArgs), Code, ProcDecls) :-
-	%% print("name: "), nl, print(Name), nl,
+	print("PROC CALL name: "), nl, print(Name), nl,
 	%% getFromDict(Name, ProcDecls, Val).
-	(ProcArgs, Proc) = ProcDecls.get(Name),
+	getMatchedFromDict(Name, ProcDecls, (ProcArgs, Proc)),
+	%% (ProcArgs, Proc) = ProcDecls.get(Name),
 	loadProcedureArgs(CallArgs, ProcArgs, LoadCmds, ProcDecls),
 	replaceByNameArgs(CallArgs, ProcArgs, Proc, ResultProc),
 	
