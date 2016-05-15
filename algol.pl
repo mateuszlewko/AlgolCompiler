@@ -105,12 +105,15 @@ formal_args_series(FAS, Namespace) --> formal_arg(FAS, Namespace).
 formal_args_series(FAS, Namespace) --> formal_arg(FA, Namespace), [tokComma], formal_args_series(FASs, Namespace), 
 										{ append(FA, FASs, FAS) }.
 
-formal_arg(FA, Namespace) --> [tokValue, tokName(Var)], !, { my_atom_concat(Namespace, Var, V), FA = [byValueArg(V)] }.
-formal_arg(FA, Namespace) --> [tokName(Var)], { my_atom_concat(Namespace, Var, V), FA = [byNameArg(V)] }. 
+formal_arg(FA, Namespace) --> [tokValue, tokName(Var)], !, 
+								{ my_atom_concat(Namespace, Var, V), FA = [byValueArg(V)] }.
+formal_arg(FA, Namespace) --> [tokName(Var)], 
+								{ my_atom_concat(Namespace, Var, V), FA = [byNameArg(V)] }. 
 
 %% compound_instruction(CI) --> [], { CI = []}.
 compound_instruction(CI, Namespace) --> instruction(I, Namespace), { CI = [I] }.
-compound_instruction(CI, Namespace) --> instruction(I, Namespace), [tokSColon], compound_instruction(C, Namespace), { append([I], C, CI) }. %{ CI = instr(I, C) }.
+compound_instruction(CI, Namespace) --> instruction(I, Namespace), [tokSColon], compound_instruction(C, Namespace), 
+										{ append([I], C, CI) }. %{ CI = instr(I, C) }.
 
 instruction(Instr, Namespace) --> ([tokWhile], !, bool_expr(Bool, Namespace), [tokDo], compound_instruction(Body, Namespace), [tokDone], { Instr = while(Bool, Body) };
 						[tokIf], !, bool_expr(Bool, Namespace), [tokThen], compound_instruction(ThenPart, Namespace),
@@ -158,7 +161,8 @@ bool_expr(B, Namespace) --> conjunct(B, Namespace), !.
 bool_expr(B, Namespace) --> conjunct(C, Namespace), [tokOr], bool_expr(Be, Namespace), { B = or(C, Be) }.
 
 conjunct(C, Namespace) --> condition(C, Namespace), !.
-conjunct(C, Namespace) --> condition(Con, Namespace), [tokAnd], conjunct(Coj, Namespace), { C = not(or(not(Con), not(Coj))) }.
+conjunct(C, Namespace) --> condition(Con, Namespace), [tokAnd], conjunct(Coj, Namespace), 
+							{ C = not(or(not(Con), not(Coj))) }.
 
 condition(C, Namespace) --> rel_expr(C, Namespace), !.
 condition(C, Namespace) --> [tokNot], rel_expr(R, Namespace), { C = not(R) }.
@@ -257,6 +261,9 @@ setSymbols([Cmd | Rest], [CmdCode | Result], Pos) :-
 %% 	\+ lookupCmdCode(Cmd, CmdCode),
 %% 	setSymbols(Rest, Result, NextPos).
 
+%% TODO: Wyciąganie argumentów (by value) funkcji jako zmienne statyczne
+%% TODO: Matchowanie zmiennych nie lokalnych 
+
 getDeclarations(blck([], _), [], []) :- !.
 getDeclarations(blck([var(V) | Rest], _), [V | VarDecls], ProcDecls) :- !,
 	getDeclarations(blck(Rest, _), VarDecls, ProcDecls).
@@ -266,12 +273,19 @@ getDeclarations(blck([proc(Name, Args, blck(BlckDecls, Code)) | Rest], _), VarDe
 	append(VarDeclsBlck, VarDeclsNext, VarDecls),
 	append([(Name, Args, Code) | ProcDeclsBlck], ProcDeclsNext, ProcDecls).
 
+makeProcDeclsDict([], d{}) :- !.
+makeProcDeclsDict([(Name, Args, Code) | Rest], Dict) :-
+	makeProcDeclsDict(Rest, PrevDict),
+	addToDict(PrevDict, Name, (Args, Code), Dict).
+
 assembler(Prog, Code, NonHex) :-
 	getDeclarations(Prog, VarDecls, ProcDecls),
-	encode(Prog, Code, ProcDecls),
+	makeProcDeclsDict(ProcDecls, ProcDeclsDict),
+	print(ProcDeclsDict), nl,
+	encode(Prog, Code, ProcDeclsDict),
 	setJumpPos(Code, 0),
-	setVarAdresses(Code, NonHex, d{}, 0).
-	%% setSymbols(VarsWithAdresses, NonHex, 0).
+	setVarAdresses(Code, VarsWithAdresses, d{}, 0),
+	setSymbols(VarsWithAdresses, NonHex, 0).
 
 
 %% ENKODER %%
@@ -305,7 +319,8 @@ encode([Instruction | Rest], Code, ProcDecls) :-
 	append(Cmd, Cmds, Code).
 
 % predykat zapisuje ACC do tymczasowej komórki i ją przeskakuje
-storeAccToTemp([swapd, const, currPos(VarPos, 7), swapa, swapd, store, const, currPos(3), jump, nop], currPos(VarPos, 7)). 
+storeAccToTemp([swapd, const, currPos(VarPos, 7), swapa, swapd, 
+				store, const, currPos(3), jump, nop], currPos(VarPos, 7)). 
 
 
 %% WYRAŻENIA ATOMOWE %%
@@ -393,15 +408,49 @@ encode(if(Bool, ThenPart), Code, ProcDecls) :-
 	append(BoolCmds, ThenCmds, Code).
 
 
-encode(proc_call(Name, Args), [procCALL], ProcDecls) :- print("proc call"), nl.
+%% getFromDict(Key, Dict, Value) :-
+%% 	is_dict(Dict), print("IS DICT"), nl, print(Dict), nl,
+%% 	Value = Dict.get(Key).
 
+%% getProcAbsynt(_())
+
+replaceLabelPos(_, [], Pos, [], Cnt) :- !.
+replaceLabelPos(Name, [labelPos(Name) | Rest], Pos, [currPos(Pos - Cnt) | Result], Cnt) :- !,
+	NextCnt is Cnt + 1,
+	replaceLabelPos(Name, Rest, Pos, Result, NextCnt).
+replaceLabelPos(Name, [Cmd | Rest], Pos, [Cmd | Result], Cnt) :-
+	NextCnt is Cnt + 1,
+	replaceLabelPos(Name, Rest, Pos, Result, NextCnt).
+
+encode(proc_call(Name, Args), Code, ProcDecls) :-
+	%% print("name: "), nl, print(Name), nl,
+	%% getFromDict(Name, ProcDecls, Val).
+	(Args, Proc) = ProcDecls.get(Name),
+	print("proc:"), nl, print(Proc), nl,
+	encode(Proc, ProcCmds, ProcDecls),
+	(
+		nth0(Npos, ProcCmds, labelPos(jumpProcEnd)),
+		length(ProcCmds, ProcCmdsLen), 
+		replaceLabelPos(jumpProcEnd, ProcCmds, ProcCmdsLen, ProcCmdsReplaced, 0),
+		append(ProcCmdsReplaced, [swapd], Code);
+		append(ProcCmds, [const, 0], Code)
+	).
+
+	%% append(ProcCmds, [swapd], Code).
+	%% atom_concat(Name, 'end', LabelName),
+	%% print("proc call:"), nl, print(Name), nl, print(Args), nl.
+
+
+encode(retr(Expr), Code, ProcDecls) :-
+	encode(Expr, ExprCode, ProcDecls),
+	append(ExprCode, [swapd, const, labelPos(jumpProcEnd), jump], Code).
 %% OPERATORY RELACYJNE %%
 
 % Oblicz L - R w ACC
 % jeśli wynik jest równy 0 to go pozostaw w ACC ( 0 == false)
 % i przeskocz ustawianie ACC na -1 ( -1 == true)
 encode(<>(L, R), Code, ProcDecls) :- 
-	arithm_encode(L, R, sub, Cmds),
+	arithm_encode(L, R, sub, Cmds, ProcDecls),
 	negativeNumber(1, MinusOne),
 	append(Cmds, [swapd, const, currPos(6), swapa, swapd, branchz, const, MinusOne], Code).
 
@@ -418,7 +467,7 @@ encode(=(L, R), Code, ProcDecls) :-
 % Oblicz L - R,
 % Jeśli ACC < 0 to przeskocz ustawianie ACC na 0 (ACC < 0 to true)
 encode(<(L, R), Code, ProcDecls) :-
-	arithm_encode(L, R, sub, Cmds),
+	arithm_encode(L, R, sub, Cmds, ProcDecls),
 	negativeNumber(1, MinusOne),
 	append(Cmds, [swapd, const, currPos(6), swapa, swapd, branchn, const, 0], Code).
 
