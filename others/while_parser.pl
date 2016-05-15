@@ -1,6 +1,6 @@
 % SWI-Prolog
 
-:- module(while_parser, [parse/2]).
+%% :- module(while_parser, [parse/2]).
 
 /*
    A SIMPLE PARSER FOR THE `WHILE' LANGUAGE
@@ -152,12 +152,12 @@ identifier(L, Id) -->
    add appropriate semantic actions generating abstract syntax trees.
 */
 
-:- op(990, xfy, ';;').
-:- op(900, xfy, :=).
-:- op(820, xfy, and).
-:- op(840, xfy, or).
-:- op(700, xfy, <=).
-:- op(700, xfy, <>).
+%% :- op(990, xfy, ';;').
+%% :- op(900, xfy, :=).
+%% :- op(820, xfy, and).
+%% :- op(840, xfy, or).
+%% :- op(700, xfy, <=).
+%% :- op(700, xfy, <>).
 
 program(Ast) -->
    instruction(Instr),

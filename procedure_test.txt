@@ -1,0 +1,15 @@
+Program test
+	local s
+	procedure one ()
+	begin
+		write 5;
+		return 1
+	end
+begin
+	read s;
+	if s + one() > 2
+	then
+		write one()
+	fi
+	write one() - 1;
+end

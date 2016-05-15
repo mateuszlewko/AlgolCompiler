@@ -1,8 +1,9 @@
 %% LEXER %% 
-% TODO: Dopisać obsługe komentarzy
 
 %% Na bazie while_parsera z KNO
 lexer(Tokens) -->
+   white_space,
+   comment,
    white_space,
    (  (  ":=",      !, { Token = tokAssgn }
 	  ;  ";",       !, { Token = tokSColon }
@@ -58,6 +59,11 @@ lexer(Tokens) -->
 		 { Tokens = [] }
    ).
 
+without_comment_end --> [CharA, CharB], { \+ CharA == 42, \+ CharB == 41}, without_comment_end.
+without_comment_end --> [].
+comment --> [40, 42], !, without_comment_end, [42, 41].
+comment --> [].
+
 white_space --> [Char], { code_type(Char, space) }, !, white_space.
 white_space --> [].
 
@@ -75,7 +81,19 @@ alphanum([]) --> [].
 identifier(L, Id) --> alphanum(As), { atom_codes(Id, [L | As]) }.
 
 %% PARSER %% 
-%% TODO: Łączenie operatorów w lewo (teraz łączy w prawo)
+
+%% mexpr(Expr, Xs) :- 
+%%   phrase(expr(Expr, Xs, []), Xs). 
+
+
+%% expr(T, C0,C) --> term(T, C0,C). 
+%% expr(L+R, [_|C0],C) --> expr(L, C0,C1), "+", term(R, C1,C). 
+
+%% term(N, C0,C) --> number(N, C0,C). 
+%% term(N, [_,_|C0],C) --> "(", expr(N, C0,C), ")". 
+
+%% number(1, [_|C],C) --> "1". 
+%% number(2, [_|C],C) --> "2". 
 
 my_atom_concat(Prev, Name, Next) :- atomic_list_concat([Prev, Name], '|', Next).
 
@@ -127,11 +145,47 @@ instruction(Instr, Namespace) --> ([tokWhile], !, bool_expr(Bool, Namespace), [t
    						[tokWrite], !, arith_expr(AE, Namespace), { Instr = write(AE) }
    						).
 
-arith_expr(Expr, Namespace) --> summand(Expr, Namespace).
-arith_expr(Expr, Namespace) --> summand(S, Namespace), additive_op(Op), arith_expr(E, Namespace), {Expr =.. [Op, S, E] }.
+arith_expr(Expr, Namespace) --> summand(Summand, Namespace), arith_expr(Summand, Expr, Namespace).
+arith_expr(Acc, Expr, Namespace) --> additive_op(Op), !, summand(Summand, Namespace),
+      								{ Acc1 =.. [Op, Acc, Summand] }, arith_expr(Acc1, Expr, Namespace).
+arith_expr(Acc, Acc, Namespace) --> [].
+%% arith_expr([], Ls, Namespace) --> [].
+%% arith_expr([], Namespace) --> [].
+%% arith_expr(Expr, Namespace) --> {print("enter0a"), nl}, summand(Expr, Namespace).
+%% 								%% , ! ; 
+%% 								%% arith_expr(Expr, Expr, Namespace).
 
-summand(Expr, Namespace) --> factor(Expr, Namespace).
-summand(Expr, Namespace) --> factor(Factor, Namespace), multiplicative_op(Op), !, summand(Summ, Namespace), { Expr =.. [Op, Factor, Summ] }.
+%% arith_expr(Expr, Namespace) --> {print("enter1a"), nl}, summand(S, Namespace), additive_op(Op), !, 
+%% 									%% { Acc1 =.. [Op, Acc, S], print("ACC1:"), nl, print(Acc1), nl},
+%% 									arith_expr(E, Namespace), { Expr =.. [Op, S, E] }.
+
+
+%% arith_expr(Expr, Namespace) --> {print("enter0"), nl}, summand(Expr, Namespace).
+%% arith_expr(Acc, Expr, Namespace) --> {print("enter1"), nl}, summand(S, Namespace), additive_op(Op), !, 
+%% 									{ Acc1 =.. [Op, Acc, S], print("ACC1:"), nl, print(Acc1), nl},
+%% 									arith_expr(Acc1, Expr, Namespace). %, {Expr =.. [Op, S, E] }.
+%% arith_expr(Acc, Acc, _) --> [].
+
+%% arith_expr(Expr) -->
+%%    summand(Summand), arith_expr(Summand, Expr).
+
+%% arith_expr(Acc, Expr) -->
+%%    additive_op(Op), !, summand(Summand),
+%%       { Acc1 =.. [Op, Acc, Summand] }, arith_expr(Acc1, Expr).
+%% arith_expr(Acc, Acc) -->
+%%    [].
+
+%% summand(Expr, Namespace) --> factor(Expr, Namespace).
+%% summand(Expr, Namespace) --> factor(Factor, Namespace), multiplicative_op(Op), !, summand(Summ, Namespace), { Expr =.. [Op, Factor, Summ] }.
+
+summand(Expr, Namespace) -->
+   factor(Factor, Namespace), summand(Factor, Expr, Namespace).
+
+summand(Acc, Expr, Namespace) -->
+   	multiplicative_op(Op), !, factor(Factor, Namespace),
+    { Acc1 =.. [Op, Acc, Factor] }, summand(Acc1, Expr, Namespace).
+
+summand(Acc, Acc, Namespace) --> [].
 %% summand(Acc, Expr) --> summand(Acc1, Expr), multiplicative_op(Op), !, factor(Factor), { Acc1 =.. [Op, Acc, Factor] }.
 
 factor(Expr, Namespace) --> simple_expr(Expr, Namespace), !.
@@ -158,18 +212,41 @@ factual_args_series(FAS, Namespace) --> factual_arg(FA, Namespace), [tokComma],
 
 factual_arg(FA, Namespace) --> arith_expr(FA, Namespace).
 
-bool_expr(B, Namespace) --> conjunct(B, Namespace), !.
-bool_expr(B, Namespace) --> conjunct(C, Namespace), [tokOr], bool_expr(Be, Namespace), { B = or(C, Be) }.
+bool_expr(Bool, Namespace) --> disjunct(Disjunct, Namespace), bool_expr(Disjunct, Bool, Namespace).
 
-conjunct(C, Namespace) --> condition(C, Namespace), !.
-conjunct(C, Namespace) --> condition(Con, Namespace), [tokAnd], conjunct(Coj, Namespace), 
-							{ C = not(or(not(Con), not(Coj))) }.
+bool_expr(Acc, Bool, Namespace) -->
+   [tokOr], !, disjunct(Disjunct, Namespace),
+   { Acc1 =.. [or, Acc, Disjunct] }, bool_expr(Acc1, Bool, Namespace).
+bool_expr(Acc, Acc, Namespace) --> [].
 
-condition(C, Namespace) --> rel_expr(C, Namespace), !.
-condition(C, Namespace) --> [tokNot], rel_expr(R, Namespace), { C = not(R) }.
+disjunct(Disjunct, Namespace) -->
+   conjunct(Conjunct, Namespace), disjunct(Conjunct, Disjunct, Namespace).
 
-rel_expr(R, Namespace) --> arith_expr(AL, Namespace), rel_op(Rop), arith_expr(AR, Namespace), { R =.. [Rop, AL, AR] }.
-rel_expr((R), Namespace) --> [tokLParen], bool_expr(R, Namespace), [tokRParen].
+disjunct(Acc, Disjunct, Namespace) -->
+   [tokAnd], !, conjunct(Conjunct, Namespace),
+      { Acc1 = not(or(not(Acc), not(Conjunct))) }, disjunct(Acc1, Disjunct, Namespace).
+disjunct(Acc, Acc, Namespace) --> [].
+
+conjunct(Conjunct, Namespace) -->
+   (  [tokLParen], !, bool_expr(Conjunct, Namespace), [tokRParen]
+   ;  [tokNot], !, conjunct(NotConjunct, Namespace),
+         { Conjunct = not(NotConjunct) }
+   ;  arith_expr(LExpr, Namespace), rel_op(Op), arith_expr(RExpr, Namespace),
+         { Conjunct =.. [Op, LExpr, RExpr] }
+   ).
+
+%% bool_expr(B, Namespace) --> conjunct(B, Namespace), !.
+%% bool_expr(B, Namespace) --> conjunct(C, Namespace), [tokOr], bool_expr(Be, Namespace), { B = or(C, Be) }.
+
+%% conjunct(C, Namespace) --> condition(C, Namespace), !.
+%% conjunct(C, Namespace) --> condition(Con, Namespace), [tokAnd], conjunct(Coj, Namespace), 
+%% 							{ C = not(or(not(Con), not(Coj))) }.
+
+%% condition(C, Namespace) --> rel_expr(C, Namespace), !.
+%% condition(C, Namespace) --> [tokNot], rel_expr(R, Namespace), { C = not(R) }.
+
+%% rel_expr(R, Namespace) --> arith_expr(AL, Namespace), rel_op(Rop), arith_expr(AR, Namespace), { R =.. [Rop, AL, AR] }.
+%% rel_expr((R), Namespace) --> [tokLParen], bool_expr(R, Namespace), [tokRParen].
 
 additive_op(+) --> [tokPlus], !.
 additive_op(-) --> [tokMinus].
