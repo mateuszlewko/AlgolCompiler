@@ -1,5 +1,7 @@
 string_codes("local tr, tr, aa local bb procedure func ( y, x, trttr ) begin y := 2; end", S), phrase(lexer(TokList), S), phrase(declarations(X), TokList).
 
+string_codes("local tr, tr (* ss *)", S), phrase(lexer(TokList), S)
+
 phrase(declarations(X), [tokLocal, tokName(tr), tokComma, tokName(tr), tokComma, tokName(aa), tokLocal, tokName(bb), tokProcedure, tokName(func), tokLParen, tokName(y), tokComma, tokName(x), tokComma, tokName(trttr), tokRParen, tokName(beg), tokName(y), tokAssgn, tokNumber(2), tokSColon, tokEnd]). 
 
 

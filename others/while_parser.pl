@@ -203,6 +203,7 @@ summand(Acc, Acc) -->
 factor(Expr) -->
    (  [tokLParen], !, arith_expr(Expr), [tokRParen]
    ;  [tokNumber(N)], !, { Expr = constant(N) }
+   ;  [tokMinus, tokNumber(N)], !, { Expr = -constant(N) }
    ;  [tokVar(Var)], { Expr = variable(Var) }
    ).
 

@@ -145,8 +145,9 @@ instruction(Instr, Namespace) --> ([tokWhile], !, bool_expr(Bool, Namespace), [t
    						[tokWrite], !, arith_expr(AE, Namespace), { Instr = write(AE) }
    						).
 
+%% arith_expr(Expr, Namespace) --> summand(Expr, Namespace).
 arith_expr(Expr, Namespace) --> summand(Summand, Namespace), arith_expr(Summand, Expr, Namespace).
-arith_expr(Acc, Expr, Namespace) --> additive_op(Op), !, summand(Summand, Namespace),
+arith_expr(Acc, Expr, Namespace) --> additive_op(Op), summand(Summand, Namespace),
       								{ Acc1 =.. [Op, Acc, Summand] }, arith_expr(Acc1, Expr, Namespace).
 arith_expr(Acc, Acc, Namespace) --> [].
 %% arith_expr([], Ls, Namespace) --> [].
@@ -182,14 +183,15 @@ summand(Expr, Namespace) -->
    factor(Factor, Namespace), summand(Factor, Expr, Namespace).
 
 summand(Acc, Expr, Namespace) -->
-   	multiplicative_op(Op), !, factor(Factor, Namespace),
+   	multiplicative_op(Op), factor(Factor, Namespace),
     { Acc1 =.. [Op, Acc, Factor] }, summand(Acc1, Expr, Namespace).
 
 summand(Acc, Acc, Namespace) --> [].
 %% summand(Acc, Expr) --> summand(Acc1, Expr), multiplicative_op(Op), !, factor(Factor), { Acc1 =.. [Op, Acc, Factor] }.
 
-factor(Expr, Namespace) --> simple_expr(Expr, Namespace), !.
-factor(Expr, Namespace) --> [tokMinus], simple_expr(-(Expr), Namespace).
+factor(-(Expr), Namespace) --> [tokMinus], simple_expr(Expr, Namespace).
+factor(Expr, Namespace) --> simple_expr(Expr, Namespace).
+
 simple_expr(Expr, Namespace) --> atomic_expr(Expr, Namespace), !.% { print("simple expr enter"), nl}.
 simple_expr(Expr, Namespace) --> [tokLParen], arith_expr(E, Namespace), [tokRParen], { Expr = (E) }.
 
@@ -380,12 +382,36 @@ assembler(Prog, Code, NonHex) :-
 	setJumpPos(Code, 0),
 	makeVarDeclsDict(VarDecls, VarDeclsDict, 0),
 	setVarAdresses(Code, VarsWithAdresses, VarDeclsDict),
+	print("VarsWithAdresses:"), nl, print(VarsWithAdresses), nl,
 	setSymbols(VarsWithAdresses, NonHex, 0).
 
 
 %% ENKODER %%
 
 %% POMOCNICZE %%
+
+compileFile(FileName, NonHex, Code, Absynt) :-
+	open(FileName, 'read', Rstream), 
+	read(Rstream, SourceCode), 
+	close(Rstream),
+	string_codes(SourceCode, Codes),
+	phrase(lexer(TokList), Codes),
+	phrase(program(Absynt), TokList),
+	assembler(Absynt, Code, NonHex).
+
+ %% main(A) :- 
+ %%         open('testin.txt',read,Str), 
+ %%         read_houses(Str,Houses), 
+ %%         close(Str), 
+ %%         write(Houses),  nl. 
+    
+ %%   read_houses(Stream,[]):- 
+ %%         at_end_of_stream(Stream). 
+    
+ %%   read_houses(Stream,[X|L]):- 
+ %%         \+  at_end_of_stream(Stream), 
+ %%         read(Stream,X), 
+ %%         read_houses(Stream,L).
 
 % Returns negative number in Alogol16
 negativeNumber(X, N) :- N is 2^16 - X.
@@ -540,8 +566,8 @@ loadProcedureArgs([], [], [], _) :- !.
 loadProcedureArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], Code, ProcDecls) :-
 	encode(Arg, ArgCmds, ProcDecls),
 	loadProcedureArgs(CallArgs, ProcArgs, LoadCmds, ProcDecls),
-	append(ArgCmds, [swapd, const, Var, swapa, swapd, store], Cmds),
-	append(Cmds, LoadCmds, Code).
+	append(ArgCmds, [swapd, const, var(Var), swapa, swapd, store], Cmds),
+	append(LoadCmds, Cmds, Code).
 
 loadProcedureArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], Code, ProcDecls) :-
 	loadProcedureArgs(CallArgs, ProcArgs, Code, ProcDecls).
@@ -585,14 +611,18 @@ encode(proc_call(Name, CallArgs), Code, ProcDecls) :-
 	
 	print("proc:"), nl, print(Proc), nl,
 	print("ResultProc: "), nl, print(ResultProc), nl,
+	print("LoadCmds: "), nl, print(LoadCmds), nl,
 
 	encode(ResultProc, ProcCmds, ProcDecls),
 	(
 		nth0(Npos, ProcCmds, labelPos(jumpProcEnd)),
 		length(ProcCmds, ProcCmdsLen), 
 		replaceLabelPos(jumpProcEnd, ProcCmds, ProcCmdsLen, ProcCmdsReplaced, 0),
-		append(ProcCmdsReplaced, [swapd], Code);
-		append(ProcCmds, [const, 0], Code)
+		append(ProcCmdsReplaced, [swapd], Cmds),
+		append(LoadCmds, Cmds, Code);
+		append(ProcCmds, [const, 0], Cmds), 
+		append(LoadCmds, Cmds, Code),
+		print("LOAD O at ProcEnd"), nl
 	).
 
 	%% append(ProcCmds, [swapd], Code).
@@ -655,6 +685,8 @@ arithm_encode(L, R, Cmd, Code, ProcDecls) :-
 	append(LCmds, RCmds, Code).
 
 %% TODO: Operator modulo (mod(L, R))
+encode(-(R), Code, ProcDecls) :- arithm_encode(num(0), R, sub, Code, ProcDecls).
+
 encode(L + R, Code, ProcDecls) :- arithm_encode(L, R, add, Code, ProcDecls).
 encode(L - R, Code, ProcDecls) :- arithm_encode(L, R, sub, Code, ProcDecls).
 encode(div(L, R), Code, ProcDecls) :- arithm_encode(L, R, div, Code, ProcDecls).
