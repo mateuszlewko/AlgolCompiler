@@ -144,22 +144,19 @@ atomic_expr(Expr, Namespace) --> variable(Expr, Namespace).% { print("atomic var
 atomic_expr(num(Expr), Namespace) --> [tokNumber(Expr)]. %, { Expr = num(N) }.
 
 procedure_call(PC, Namespace) --> 
-			[tokName(Name), tokLParen], {print("Proc call enter:"), nl, print(Name), nl}, factual_args(FAs, Namespace), 
-			[tokRParen], 
-								{ 	
-								my_atom_concat(Namespace, Name, ProcName),
-								PC = proc_call(ProcName, FAs), print(PC), nl }.
+			[tokName(Name), tokLParen], factual_args(FAs, Namespace), [tokRParen], 
+			{ my_atom_concat(Namespace, Name, ProcName), PC = proc_call(ProcName, FAs) }.
 
-factual_args(FAs, Namespace) --> [], { FAs = [], print("empty fac args enter"), nl}.
-factual_args(FAs, Namespace) --> {print("NON empty fac args enter"), nl}, factual_args_series(FAs, Namespace).
+factual_args(FAs, Namespace) --> [], { FAs = [] }.
+factual_args(FAs, Namespace) --> factual_args_series(FAs, Namespace).
 
 %% factual_args_series(FAS, Namespace) --> {print("enter1"), nl}, [], {FAS = []}.
-factual_args_series(FAS, Namespace) --> {print("enter2"), nl}, factual_arg(FA, Namespace), { FAS = [FA] }.
-factual_args_series(FAS, Namespace) --> {print("enter3"), nl}, factual_arg(FA, Namespace), [tokComma], 
-										factual_args_series(FASs, Namespace), { append([FA], FASs, FAS) }.
+factual_args_series(FAS, Namespace) --> factual_arg(FA, Namespace), { FAS = [FA] }.
+factual_args_series(FAS, Namespace) --> factual_arg(FA, Namespace), [tokComma], 
+										factual_args_series(FASs, Namespace), 
+										{ append([FA], FASs, FAS) }.
 
-factual_arg(FA, Namespace) --> {print("FAC ARGS ENTER"), nl}, arith_expr(FA, Namespace),
-								{print("factual_arg as arith_expr:"), nl, print(FA), nl}.
+factual_arg(FA, Namespace) --> arith_expr(FA, Namespace).
 
 bool_expr(B, Namespace) --> conjunct(B, Namespace), !.
 bool_expr(B, Namespace) --> conjunct(C, Namespace), [tokOr], bool_expr(Be, Namespace), { B = or(C, Be) }.
@@ -232,13 +229,15 @@ setJumpPos([Cmd | Rest], Pos) :-
 %% 	Res = Dict.get(Key).
 addToDict(Dict, Key, Value, Dict.put(Key, Value)).
 
-setVarAdresses([], [], D, Cnt).
-setVarAdresses([var(V) | Rest], [Var | Result], VarsDict, Cnt) :- !,
-	(getMatchedFromDict(V, VarsDict, Var), NextVarsDict = VarsDict, NextCnt = Cnt;
-	Var is 2^16 - Cnt - 1, addToDict(VarsDict, V, Var, NextVarsDict), NextCnt is Cnt + 1), !,
-	setVarAdresses(Rest, Result, NextVarsDict, NextCnt).
+setVarAdresses([], [], D).
+setVarAdresses([var(V) | Rest], [Var | Result], VarsDict) :- !,
+	getMatchedFromDict(V, VarsDict, Var),
+	%% NextVarsDict = VarsDict, NextCnt = Cnt;
+	%% Var is 2^16 - Cnt - 1, addToDict(VarsDict, V, Var, NextVarsDict), NextCnt is Cnt + 1), !,
+	setVarAdresses(Rest, Result, VarsDict).
 
-setVarAdresses([Cmd | Rest], [Cmd | Result], VarsDict, Cnt) :- setVarAdresses(Rest, Result, VarsDict, Cnt).
+setVarAdresses([Cmd | Rest], [Cmd | Result], VarsDict) :- 
+	setVarAdresses(Rest, Result, VarsDict).
 
 setSymbols([], [], Pos).
 setSymbols([currPos(N) | Rest], [Val | Result], Pos) :-
@@ -287,13 +286,23 @@ makeProcDeclsDict([(Name, Args, Code) | Rest], Dict) :-
 	makeProcDeclsDict(Rest, PrevDict),
 	addToDict(PrevDict, Name, (Args, Code), Dict).
 
+makeVarDeclsDict([], d{}, _) :- !.
+makeVarDeclsDict([Var | Rest], DictRes, Cnt) :-
+	Val is 2^16 - Cnt - 1,
+	NextCnt is Cnt + 1,
+	makeVarDeclsDict(Rest, Dict, NextCnt),
+	DictRes = Dict.put(Var, Val).
+
 assembler(Prog, Code, NonHex) :-
 	getDeclarations(Prog, VarDecls, ProcDecls),
 	makeProcDeclsDict(ProcDecls, ProcDeclsDict),
+	
 	print("PROCS DICT"), nl, print(ProcDeclsDict), nl,
 	encode(Prog, Code, ProcDeclsDict),
+	
 	setJumpPos(Code, 0),
-	setVarAdresses(Code, VarsWithAdresses, d{}, 0),
+	makeVarDeclsDict(VarDecls, VarDeclsDict, 0),
+	setVarAdresses(Code, VarsWithAdresses, VarDeclsDict),
 	setSymbols(VarsWithAdresses, NonHex, 0).
 
 

@@ -35,7 +35,8 @@ phrase(program(X), [tokProgram, tokName('Suma'), tokLocal, tokName(x), tokComma,
 string_codes("program test local s procedure one () local locvar begin write 5; return 1 end begin read s; if s + one() > 2 then write one() fi; write one() - 1 end", S), phrase(lexer(TokList), S).
 
 string_codes("program test local s procedure oneB() begin return 5 end procedure one () local locvar procedure two (value arg1, arg2) procedure three() begin return oneB() end begin return three() end begin write 5; return two(5, 10) end begin read s; if s + one() > 2 then write one() fi; write one() - 1 end", S), phrase(lexer(TokList), S).
-
+% assembled:
+[9, 1, 1, 5, 9, 65535, 4, 5, 3, 9, 2, 5, 9, 20, 4, 5, 3, 9, 21, 8, 0, 9, 65535, 4, 2, 5, 9, 34, 4, 5, 3, 9, 35, 8, 0, 9, 5, 5, 9, 2, 1, 9, 5, 5, 9, 47, 8, 5, 5, 9, 52, 8, 5, 5, 9, 57, 8, 5, 5, 9, 62, 8, 5, 5, 9, 34, 4, 2, 10, 5, 9, 20, 4, 2, 11, 5, 9, 83, 4, 5, 7, 9, 0, 5, 9, 121, 4, 5, 6, 9, 5, 5, 9, 2, 1, 9, 5, 5, 9, 101, 8, 5, 5, 9, 106, 8, 5, 5, 9, 111, 8, 5, 5, 9, 116, 8, 5, 5, 9, 2, 1, 9, 5, 5, 9, 2, 1, 9, 5, 5, 9, 133, 8, 5, 5, 9, 138, 8, 5, 5, 9, 143, 8, 5, 5, 9, 148, 8, 5, 5, 9, 158, 4, 5, 3, 9, 159, 8, 0, 9, 1, 5, 9, 158, 4, 2, 11, 5, 9, 2, 1, 9, 0, 1].
 %while x <> 0 do s:= s + x; read x done;
 string_codes("program Suma local x, s begin s := 0; read x; while x <> 0 do x := 5; read x done; write s end", S), parse(S, X).
 

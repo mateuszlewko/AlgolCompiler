@@ -2,7 +2,7 @@
  * sexproc.c - implementation of the Sextium® III processor
  */
 
-#include<endian.h>  // be16toh, htobe16
+#include"endian.h" // be16toh, htobe16
 #include"sexproc.h"
 
 struct retval run(machine_word memory[MEMORY_SIZE],
