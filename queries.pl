@@ -34,10 +34,13 @@ phrase(program(X), [tokProgram, tokName('Suma'), tokLocal, tokName(x), tokComma,
 
 string_codes("program test local s procedure one () local locvar begin write 5; return 1 end begin read s; if s + one() > 2 then write one() fi; write one() - 1 end", S), phrase(lexer(TokList), S).
 
-string_codes("program test local s procedure one () local locvar procedure two (arg1) begin return 1 end begin write 5; return 1 end begin read s; if s + one() > 2 then write one() fi; write one() - 1 end", S), phrase(lexer(TokList), S).
+string_codes("program test local s procedure one () local locvar procedure two (value arg1) begin return 1 end begin write 5; return 1 end begin read s; if s + one() > 2 then write one() fi; write one() - 1 end", S), phrase(lexer(TokList), S).
 
 %while x <> 0 do s:= s + x; read x done;
 string_codes("program Suma local x, s begin s := 0; read x; while x <> 0 do x := 5; read x done; write s end", S), parse(S, X).
+
+
+string_codes("program test local s procedure one () local locvar procedure two (value arg1, arg2) begin return arg2 end begin write 5; return 1 end begin read s; if s + one() > 2 then write two(one() - 1, one() - s) fi; write one() - 1 end", S), phrase(lexer(TokList), S).
 
 
 % Encoder:

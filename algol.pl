@@ -136,26 +136,30 @@ summand(Expr, Namespace) --> factor(Factor, Namespace), multiplicative_op(Op), !
 
 factor(Expr, Namespace) --> simple_expr(Expr, Namespace), !.
 factor(Expr, Namespace) --> [tokMinus], simple_expr(-(Expr), Namespace).
-simple_expr(Expr, Namespace) --> atomic_expr(Expr, Namespace), !, { print("simple expr enter"), nl}.
+simple_expr(Expr, Namespace) --> atomic_expr(Expr, Namespace), !.% { print("simple expr enter"), nl}.
 simple_expr(Expr, Namespace) --> [tokLParen], arith_expr(E, Namespace), [tokRParen], { Expr = (E) }.
 
 atomic_expr(Expr, Namespace) --> procedure_call(Expr, Namespace).
-atomic_expr(Expr, Namespace) --> variable(Expr, Namespace), { print("atomic var enter"), nl, print(Expr), nl}.
+atomic_expr(Expr, Namespace) --> variable(Expr, Namespace).% { print("atomic var enter"), nl, print(Expr), nl}.
 atomic_expr(num(Expr), Namespace) --> [tokNumber(Expr)]. %, { Expr = num(N) }.
 
-procedure_call(PC, Namespace) --> [tokName(Name), tokLParen], factual_args(FAs, Namespace), [tokRParen], 
-	{ 	print("Proc call enter"), nl,
-		my_atom_concat(Namespace, Name, ProcName),
-		PC = proc_call(ProcName, FAs), print(PC), nl }.
+procedure_call(PC, Namespace) --> 
+			[tokName(Name), tokLParen], {print("Proc call enter:"), nl, print(Name), nl}, factual_args(FAs, Namespace), 
+			[tokRParen], 
+								{ 	
+								my_atom_concat(Namespace, Name, ProcName),
+								PC = proc_call(ProcName, FAs), print(PC), nl }.
 
-factual_args(FAs, Namespace) --> [], { FAs = [], print("empty fac args enter"), nl}, !.
-factual_args(FAs, Namespace) --> factual_args_series(FAs, Namespace).
+factual_args(FAs, Namespace) --> [], { FAs = [], print("empty fac args enter"), nl}.
+factual_args(FAs, Namespace) --> {print("NON empty fac args enter"), nl}, factual_args_series(FAs, Namespace).
 
-factual_args_series(FAS, Namespace) --> factual_arg(FA, Namespace), !, { FAS = [FA] }.
-factual_args_series(FAS, Namespace) --> factual_arg(FA, Namespace), [tokComma], 
+%% factual_args_series(FAS, Namespace) --> {print("enter1"), nl}, [], {FAS = []}.
+factual_args_series(FAS, Namespace) --> {print("enter2"), nl}, factual_arg(FA, Namespace), { FAS = [FA] }.
+factual_args_series(FAS, Namespace) --> {print("enter3"), nl}, factual_arg(FA, Namespace), [tokComma], 
 										factual_args_series(FASs, Namespace), { append([FA], FASs, FAS) }.
 
-factual_arg(FA, Namespace) --> arith_expr(FA, Namespace).
+factual_arg(FA, Namespace) --> {print("FAC ARGS ENTER"), nl}, arith_expr(FA, Namespace),
+								{print("factual_arg as arith_expr:"), nl, print(FA), nl}.
 
 bool_expr(B, Namespace) --> conjunct(B, Namespace), !.
 bool_expr(B, Namespace) --> conjunct(C, Namespace), [tokOr], bool_expr(Be, Namespace), { B = or(C, Be) }.
@@ -261,7 +265,6 @@ setSymbols([Cmd | Rest], [CmdCode | Result], Pos) :-
 %% 	\+ lookupCmdCode(Cmd, CmdCode),
 %% 	setSymbols(Rest, Result, NextPos).
 
-%% TODO: Wyciąganie argumentów (by value) funkcji jako zmienne statyczne
 %% TODO: Matchowanie zmiennych nie lokalnych 
 
 getDeclarations(blck([], _), [], []) :- !.
@@ -449,14 +452,35 @@ replace(L, R, PrevAtom, NextAtom):-
 %%     S =.. [F|As], maplist(replace(X,Y),As,Rs), R =.. [F|Rs], !.
 %% replace(_,_,U,U).
 
-%% TODO: Zapisywanie wartości do argumentów by value
-%% TODO: Argumenty by name
-encode(proc_call(Name, Args), Code, ProcDecls) :-
+loadProcedureArgs([], [], [], _) :- !.
+loadProcedureArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], Code, ProcDecls) :-
+	encode(Arg, ArgCmds, ProcDecls),
+	loadProcedureArgs(CallArgs, ProcArgs, LoadCmds, ProcDecls),
+	append(ArgCmds, [swapd, const, Var, swapa, swapd, store], Cmds),
+	append(Cmds, LoadCmds, Code).
+
+loadProcedureArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], Code, ProcDecls) :-
+	loadProcedureArgs(CallArgs, ProcArgs, Code, ProcDecls).
+
+replaceByNameArgs([], [], P, P) :- !.
+replaceByNameArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], CurrentProc, ResultProc) :-
+	replace(CurrentProc, Proc, var(Var), Arg), !,
+	replaceByNameArgs(CallArgs, ProcArgs, Proc, ResultProc).
+
+replaceByNameArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], CurrentProc, ResultProc) :-
+	replaceByNameArgs(CallArgs, ProcArgs, CurrentProc, ResultProc).
+
+encode(proc_call(Name, CallArgs), Code, ProcDecls) :-
 	%% print("name: "), nl, print(Name), nl,
 	%% getFromDict(Name, ProcDecls, Val).
-	(Args, Proc) = ProcDecls.get(Name),
+	(ProcArgs, Proc) = ProcDecls.get(Name),
+	loadProcedureArgs(CallArgs, ProcArgs, LoadCmds, ProcDecls),
+	replaceByNameArgs(CallArgs, ProcArgs, Proc, ResultProc),
+	
 	print("proc:"), nl, print(Proc), nl,
-	encode(Proc, ProcCmds, ProcDecls),
+	print("ResultProc: "), nl, print(ResultProc), nl,
+
+	encode(ResultProc, ProcCmds, ProcDecls),
 	(
 		nth0(Npos, ProcCmds, labelPos(jumpProcEnd)),
 		length(ProcCmds, ProcCmdsLen), 
