@@ -1,15 +1,12 @@
 "
-program test
-	local a, b, c
-	procedure add(value a, value b)
-	begin
-		return a + b
-	end
-(* komm *)
+program example
+    local x
+    procedure one(arg)
+    begin 
+    	write arg
+    end
 begin
-read a;
-read b;
-read c;
-write (add(a, add(b, c)))
+	read x;
+	call one(x)
 end
 ".

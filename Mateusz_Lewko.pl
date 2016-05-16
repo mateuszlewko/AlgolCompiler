@@ -1,12 +1,25 @@
+% Autor: Mateusz Lewko
+% Rozwiązanie za 47 punktów: wszystko bez rekurencji 
+% 
+% Ciało funkcji jest wklejane w miejsce wywołania.
+% Wszystkie zmienne są statyczne (wliczając argumenty funkcji)
+% 
+% predykat do wczytywania z pliku: compileFile, (plik musi zawierać kod w następujacej postaci: "<kod programu>". 
+% czyli w cudzysłowie i z kropką na końcu)
+% Błędy: 
+%		1) czasami nie działają komentarze, tzn jeśli nie ma spacji przed i po (* oraz *)
+%			jezeli predykat zwaraca false nawet po sformatowaniu komentarzy, to proszę spróbować usunąć komentarze
+
 
 algol16(Source, SextiumBin) :-
 	phrase(lexer(TokList), Source),
 	phrase(program(Absynt), TokList),
 	assembler(Absynt, Code, SextiumBin).
 
+
 %% LEXER %% 
 
-%% Na bazie while_parsera z KNO
+%% Na bazie while_parser.pl ze strony KNO
 lexer(Tokens) -->
    white_space,
    comment,
@@ -53,7 +66,6 @@ lexer(Tokens) -->
 									 (write, tokWrite)]),
 			   !
 			;  Token = tokName(Id)
-			%% ;  Token = tokProcedure(Id)
 			}
 	  ;  [_],
 			{ Token = tokUnknown }
@@ -89,21 +101,11 @@ csymID([]) --> [].
 
 identifier(L, Id) --> csymID(As), { atom_codes(Id, [L | As]) }.
 
+
 %% PARSER %% 
 
-%% mexpr(Expr, Xs) :- 
-%%   phrase(expr(Expr, Xs, []), Xs). 
-
-
-%% expr(T, C0,C) --> term(T, C0,C). 
-%% expr(L+R, [_|C0],C) --> expr(L, C0,C1), "+", term(R, C1,C). 
-
-%% term(N, C0,C) --> number(N, C0,C). 
-%% term(N, [_,_|C0],C) --> "(", expr(N, C0,C), ")". 
-
-%% number(1, [_|C],C) --> "1". 
-%% number(2, [_|C],C) --> "2". 
-
+% predykat pomocniczy, łączy dwa atomy w jeden, oddzielając je znakiem '|', 
+% słuzy do tworzenia przestrzeni nazw zmiennych i procedur
 my_atom_concat(Prev, Name, Next) :- atomic_list_concat([Prev, Name], '|', Next).
 
 program(P) --> [tokProgram, tokName(Name)], block(P, global).
@@ -116,9 +118,9 @@ declaration(D, Namespace) --> declarator(D, Namespace).
 declaration(D, Namespace) --> procedure(P, Namespace), { D = [P]}.
 declarator(D, Namespace) --> [tokLocal], variables(D, Namespace).
 
-%% vars(A, V, B) :- once(variables(A, V, B)). % przyda się pózniej
 variables(V, Namespace) --> variable(Var, Namespace), { V = [Var]}.
-variables(V, Namespace) --> variable(Var, Namespace), [tokComma], variables(Vars, Namespace), { append([Var], Vars, V) }.
+variables(V, Namespace) --> variable(Var, Namespace), [tokComma], variables(Vars, Namespace), 
+							{ append([Var], Vars, V) }.
 variable(var(V), Namespace) --> [tokName(VName)], { my_atom_concat(Namespace, VName, V) }.
 
 procedure(P, Namespace) --> [tokProcedure, tokName(Id), tokLParen], { my_atom_concat(Namespace, Id, NextNamespace) },
@@ -137,10 +139,9 @@ formal_arg(FA, Namespace) --> [tokValue, tokName(Var)], !,
 formal_arg(FA, Namespace) --> [tokName(Var)], 
 								{ my_atom_concat(Namespace, Var, V), FA = [byNameArg(V)] }. 
 
-%% compound_instruction(CI) --> [], { CI = []}.
 compound_instruction(CI, Namespace) --> instruction(I, Namespace), { CI = [I] }.
 compound_instruction(CI, Namespace) --> instruction(I, Namespace), [tokSColon], compound_instruction(C, Namespace), 
-										{ append([I], C, CI) }. %{ CI = instr(I, C) }.
+										{ append([I], C, CI) }. 
 
 instruction(Instr, Namespace) --> ([tokWhile], !, bool_expr(Bool, Namespace), [tokDo], compound_instruction(Body, Namespace), [tokDone], { Instr = while(Bool, Body) };
 						[tokIf], !, bool_expr(Bool, Namespace), [tokThen], compound_instruction(ThenPart, Namespace),
@@ -154,39 +155,11 @@ instruction(Instr, Namespace) --> ([tokWhile], !, bool_expr(Bool, Namespace), [t
    						[tokWrite], !, arith_expr(AE, Namespace), { Instr = write(AE) }
    						).
 
-%% arith_expr(Expr, Namespace) --> summand(Expr, Namespace).
 arith_expr(Expr, Namespace) --> summand(Summand, Namespace), arith_expr(Summand, Expr, Namespace).
 arith_expr(Acc, Expr, Namespace) --> additive_op(Op), summand(Summand, Namespace),
       								{ Acc1 =.. [Op, Acc, Summand] }, arith_expr(Acc1, Expr, Namespace).
+
 arith_expr(Acc, Acc, Namespace) --> [].
-%% arith_expr([], Ls, Namespace) --> [].
-%% arith_expr([], Namespace) --> [].
-%% arith_expr(Expr, Namespace) --> {print("enter0a"), nl}, summand(Expr, Namespace).
-%% 								%% , ! ; 
-%% 								%% arith_expr(Expr, Expr, Namespace).
-
-%% arith_expr(Expr, Namespace) --> {print("enter1a"), nl}, summand(S, Namespace), additive_op(Op), !, 
-%% 									%% { Acc1 =.. [Op, Acc, S], print("ACC1:"), nl, print(Acc1), nl},
-%% 									arith_expr(E, Namespace), { Expr =.. [Op, S, E] }.
-
-
-%% arith_expr(Expr, Namespace) --> {print("enter0"), nl}, summand(Expr, Namespace).
-%% arith_expr(Acc, Expr, Namespace) --> {print("enter1"), nl}, summand(S, Namespace), additive_op(Op), !, 
-%% 									{ Acc1 =.. [Op, Acc, S], print("ACC1:"), nl, print(Acc1), nl},
-%% 									arith_expr(Acc1, Expr, Namespace). %, {Expr =.. [Op, S, E] }.
-%% arith_expr(Acc, Acc, _) --> [].
-
-%% arith_expr(Expr) -->
-%%    summand(Summand), arith_expr(Summand, Expr).
-
-%% arith_expr(Acc, Expr) -->
-%%    additive_op(Op), !, summand(Summand),
-%%       { Acc1 =.. [Op, Acc, Summand] }, arith_expr(Acc1, Expr).
-%% arith_expr(Acc, Acc) -->
-%%    [].
-
-%% summand(Expr, Namespace) --> factor(Expr, Namespace).
-%% summand(Expr, Namespace) --> factor(Factor, Namespace), multiplicative_op(Op), !, summand(Summ, Namespace), { Expr =.. [Op, Factor, Summ] }.
 
 summand(Expr, Namespace) -->
    factor(Factor, Namespace), summand(Factor, Expr, Namespace).
@@ -194,19 +167,18 @@ summand(Expr, Namespace) -->
 summand(Acc, Expr, Namespace) -->
    	multiplicative_op(Op), factor(Factor, Namespace),
     { Acc1 =.. [Op, Acc, Factor] }, summand(Acc1, Expr, Namespace).
-
 summand(Acc, Acc, Namespace) --> [].
-%% summand(Acc, Expr) --> summand(Acc1, Expr), multiplicative_op(Op), !, factor(Factor), { Acc1 =.. [Op, Acc, Factor] }.
+
 
 factor(-(Expr), Namespace) --> [tokMinus], simple_expr(Expr, Namespace).
 factor(Expr, Namespace) --> simple_expr(Expr, Namespace).
 
-simple_expr(Expr, Namespace) --> atomic_expr(Expr, Namespace), !.% { print("simple expr enter"), nl}.
+simple_expr(Expr, Namespace) --> atomic_expr(Expr, Namespace), !.
 simple_expr(Expr, Namespace) --> [tokLParen], arith_expr(E, Namespace), [tokRParen], { Expr = (E) }.
 
 atomic_expr(Expr, Namespace) --> procedure_call(Expr, Namespace).
-atomic_expr(Expr, Namespace) --> variable(Expr, Namespace).% { print("atomic var enter"), nl, print(Expr), nl}.
-atomic_expr(num(Expr), Namespace) --> [tokNumber(Expr)]. %, { Expr = num(N) }.
+atomic_expr(Expr, Namespace) --> variable(Expr, Namespace).
+atomic_expr(num(Expr), Namespace) --> [tokNumber(Expr)].
 
 procedure_call(PC, Namespace) --> 
 			[tokName(Name), tokLParen], factual_args(FAs, Namespace), [tokRParen], 
@@ -215,7 +187,6 @@ procedure_call(PC, Namespace) -->
 factual_args(FAs, Namespace) --> [], { FAs = [] }.
 factual_args(FAs, Namespace) --> factual_args_series(FAs, Namespace).
 
-%% factual_args_series(FAS, Namespace) --> {print("enter1"), nl}, [], {FAS = []}.
 factual_args_series(FAS, Namespace) --> factual_arg(FA, Namespace), { FAS = [FA] }.
 factual_args_series(FAS, Namespace) --> factual_arg(FA, Namespace), [tokComma], 
 										factual_args_series(FASs, Namespace), 
@@ -246,19 +217,6 @@ conjunct(Conjunct, Namespace) -->
          { Conjunct =.. [Op, LExpr, RExpr] }
    ).
 
-%% bool_expr(B, Namespace) --> conjunct(B, Namespace), !.
-%% bool_expr(B, Namespace) --> conjunct(C, Namespace), [tokOr], bool_expr(Be, Namespace), { B = or(C, Be) }.
-
-%% conjunct(C, Namespace) --> condition(C, Namespace), !.
-%% conjunct(C, Namespace) --> condition(Con, Namespace), [tokAnd], conjunct(Coj, Namespace), 
-%% 							{ C = not(or(not(Con), not(Coj))) }.
-
-%% condition(C, Namespace) --> rel_expr(C, Namespace), !.
-%% condition(C, Namespace) --> [tokNot], rel_expr(R, Namespace), { C = not(R) }.
-
-%% rel_expr(R, Namespace) --> arith_expr(AL, Namespace), rel_op(Rop), arith_expr(AR, Namespace), { R =.. [Rop, AL, AR] }.
-%% rel_expr((R), Namespace) --> [tokLParen], bool_expr(R, Namespace), [tokRParen].
-
 additive_op(+) --> [tokPlus], !.
 additive_op(-) --> [tokMinus].
 
@@ -282,25 +240,17 @@ parse(CharCodeList, Absynt) :-
    phrase(lexer(TokList), CharCodeList),
    phrase(program(Absynt), TokList).
 
-%% encode(CharCodeList, Code) :- 
-%% 	phrase(lexer(TokList), CharCodeList),
-%%    	phrase(program(Absynt), TokList),
-%%    	print("encode0, absynt:"), nl,
-%%    	print(Absynt), nl,
-%%    	encode(Absynt, Code).
-
-
-%% encode(Program, Code) :-
-%% 	encode(Program, Code, Index), !.
 
 %% ASSEMBLER %%
 
+% konwertowanie etykiet z assemblera na liczby
 lookupCmdCode(Cmd, Code) :- 
 	Code = d{nop:0, syscall:1, load:2, store:3, swapa:4, swapd:5,
 			branchz:6, branchn:7, jump:8, const:9, add:10, sub:11, mul:12, div:13}.get(Cmd).
 
+% Zamiana currPos(Pos, Delta) na pozycje Pos + Delta
+% currPos(...) to miejsca zmiennych / skoków w pamięci
 setJumpPos([], Pos).
-
 setJumpPos([currPos(Cmd, X) | Rest], Pos) :-
 	var(Cmd), !,
 	Cmd is Pos,
@@ -312,26 +262,25 @@ setJumpPos([Cmd | Rest], Pos) :-
 	NextPos = Pos + 1, 
 	setJumpPos(Rest, NextPos).
 
-%% dictLookup(Dict, Key, Res) :-
-%% 	print("dict:"), nl, print(Dict), nl, print(Key), nl,
-%% 	Res = Dict.get(Key).
 addToDict(Dict, Key, Value, Dict.put(Key, Value)).
 
+% Zamiana zmiennych na adresy ze słownika (powstałego z deklaracji zmiennych)
 setVarAdresses([], [], D).
 setVarAdresses([var(V) | Rest], [Var | Result], VarsDict) :- !,
 	getMatchedFromDict(V, VarsDict, Var),
-	%% NextVarsDict = VarsDict, NextCnt = Cnt;
-	%% Var is 2^16 - Cnt - 1, addToDict(VarsDict, V, Var, NextVarsDict), NextCnt is Cnt + 1), !,
 	setVarAdresses(Rest, Result, VarsDict).
 
 setVarAdresses([Cmd | Rest], [Cmd | Result], VarsDict) :- 
 	setVarAdresses(Rest, Result, VarsDict).
 
+% zamiana currPos(N) na <pozycja currPos(N) na liście komend> + N
+% zamiana etykiet na liczby 
 setSymbols([], [], Pos).
 setSymbols([currPos(N) | Rest], [Val | Result], Pos) :-
 	Val is Pos + N,
 	NextPos = Pos + 1, !,
 	setSymbols(Rest, Result, NextPos).
+
 setSymbols([currPos(Curr, N) | Rest], [Val | Result], Pos) :-
 	Val is Curr + N,
 	NextPos = Pos + 1, !,
@@ -347,11 +296,7 @@ setSymbols([Cmd | Rest], [CmdCode | Result], Pos) :-
 	lookupCmdCode(Cmd, CmdCode),
 	setSymbols(Rest, Result, NextPos).
 
-%% setSymbols([Cmd | Rest], [CmdCode | Result], Pos) :-
-%% 	NextPos = Pos + 1, !,
-%% 	\+ lookupCmdCode(Cmd, CmdCode),
-%% 	setSymbols(Rest, Result, NextPos).
-
+% wyciąganie deklaracji z bloków i argumentów procedur (wszystkie będą traktowane jak zmienne statyczne)
 getDeclarations(blck([], _), [], []) :- !.
 getDeclarations(blck([var(V) | Rest], _), [V | VarDecls], ProcDecls) :- !,
 	getDeclarations(blck(Rest, _), VarDecls, ProcDecls).
@@ -369,11 +314,13 @@ getDeclarations([byValueArg(Var) | Rest], [Var | VarDecls], ProcDecls) :-
 getDeclarations([byNameArg(Var) | Rest], VarDecls, ProcDecls) :-
 	getDeclarations(Rest, VarDecls, ProcDecls).
 
+% słownik powstały z deklaracji procedur
 makeProcDeclsDict([], d{}) :- !.
 makeProcDeclsDict([(Name, Args, Code) | Rest], Dict) :-
 	makeProcDeclsDict(Rest, PrevDict),
 	addToDict(PrevDict, Name, (Args, Code), Dict).
 
+% słownik powstały z deklaracji zmiennych
 makeVarDeclsDict([], d{}, _) :- !.
 makeVarDeclsDict([Var | Rest], DictRes, Cnt) :-
 	Val is 2^16 - Cnt - 1,
@@ -381,17 +328,19 @@ makeVarDeclsDict([Var | Rest], DictRes, Cnt) :-
 	makeVarDeclsDict(Rest, Dict, NextCnt),
 	DictRes = Dict.put(Var, Val).
 
+% wyciąganie deklaracji
+% enkodowanie AST
+% obliczanie pozycji / numerów w pamięci
+% zamiana na assembler
 assembler(Prog, Code, NonHex) :-
 	getDeclarations(Prog, VarDecls, ProcDecls),
 	makeProcDeclsDict(ProcDecls, ProcDeclsDict),
 	
-	print("PROCS DICT"), nl, print(ProcDeclsDict), nl,
 	encode(Prog, Code, ProcDeclsDict),
 	
 	setJumpPos(Code, 0),
 	makeVarDeclsDict(VarDecls, VarDeclsDict, 0),
 	setVarAdresses(Code, VarsWithAdresses, VarDeclsDict),
-	print("VarsWithAdresses:"), nl, print(VarsWithAdresses), nl,
 	setSymbols(VarsWithAdresses, NonHex, 0).
 
 
@@ -399,6 +348,7 @@ assembler(Prog, Code, NonHex) :-
 
 %% POMOCNICZE %%
 
+% wczytuje plik, zwaraca assembler, AST, assembler z etykietami
 compileFile(FileName, NonHex, Code, Absynt) :-
 	open(FileName, 'read', Rstream), 
 	read(Rstream, SourceCode), 
@@ -408,21 +358,7 @@ compileFile(FileName, NonHex, Code, Absynt) :-
 	phrase(program(Absynt), TokList),
 	assembler(Absynt, Code, NonHex).
 
- %% main(A) :- 
- %%         open('testin.txt',read,Str), 
- %%         read_houses(Str,Houses), 
- %%         close(Str), 
- %%         write(Houses),  nl. 
-    
- %%   read_houses(Stream,[]):- 
- %%         at_end_of_stream(Stream). 
-    
- %%   read_houses(Stream,[X|L]):- 
- %%         \+  at_end_of_stream(Stream), 
- %%         read(Stream,X), 
- %%         read_houses(Stream,L).
-
-% Returns negative number in Alogol16
+% Zwraca ujemną liczbe w Alogolu 16
 negativeNumber(X, N) :- N is 2^16 - X.
 
 % Przenieś ACC do DR,
@@ -498,7 +434,6 @@ encode(read(V), Code, ProcDecls) :-
 encode(write(Expr), Code, ProcDecls) :- 
 	encode(Expr, Cmds, ProcDecls),
 	append(Cmds, [swapd, const, 2, syscall], Code).
-	%% Code = [const, V, swapa, load, swapd, const, 2, syscall].
 
 % enkoduj instrukcje warunku: w akumulatorze jest -1 jeśli warunek jest prawdziwy 
 % lub 0 jeśli jest fałszywy 
@@ -538,12 +473,6 @@ encode(if(Bool, ThenPart), Code, ProcDecls) :-
 	append(BoolCmds, ThenCmds, Code).
 
 
-%% getFromDict(Key, Dict, Value) :-
-%% 	is_dict(Dict), print("IS DICT"), nl, print(Dict), nl,
-%% 	Value = Dict.get(Key).
-
-%% getProcAbsynt(_())
-
 replaceLabelPos(_, [], Pos, [], Cnt) :- !.
 replaceLabelPos(Name, [labelPos(Name) | Rest], Pos, [currPos(Pos - Cnt) | Result], Cnt) :- !,
 	NextCnt is Cnt + 1,
@@ -552,6 +481,7 @@ replaceLabelPos(Name, [Cmd | Rest], Pos, [Cmd | Result], Cnt) :-
 	NextCnt is Cnt + 1,
 	replaceLabelPos(Name, Rest, Pos, Result, NextCnt).
 
+% zamiana atomów PrevAtom na NextAtom w AST dla danej procedury
 replace([],[], PrevAtom, NextAtom).
 replace([H | T], [NextH | NextT], PrevAtom, NextAtom):-
     (
@@ -566,18 +496,14 @@ replace(L, R, PrevAtom, NextAtom):-
 	replace(ArgsL, ArgsR, PrevAtom, NextAtom),
 	R =.. [Functor | ArgsR].
 
-%% replace(X,Y,X,Y) :- !.
-%% replace(X,Y,S,R) :-
-%%     S =.. [F|As], maplist(replace(X,Y),As,Rs), R =.. [F|Rs], !.
-%% replace(_,_,U,U).
-
+% enkodowanie argumentów przy wywoływaniu procedury
+% zapisywanie wyniku kazedego arguemntu do komórki pamięci (ArgsAdresses)
 encodeProcedureArgs([], [], [], [], _) :- !.
 encodeProcedureArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], Code, [ArgPos | ArgsAdresses], ProcDecls) :-
 	encode(Arg, ArgCmds, ProcDecls),
 	storeAccToTemp(StoreCmds, ArgPos),
 	encodeProcedureArgs(CallArgs, ProcArgs, LoadCmds, ArgsAdresses, ProcDecls),
 	append(ArgCmds, StoreCmds, Cmds),
-	%% append(ArgCmds, [swapd, const, var(Var), swapa, swapd, store], Cmds),
 	append(LoadCmds, Cmds, Code).
 
 encodeProcedureArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], Code, [doNothing | ArgsAdresses], ProcDecls) :-
@@ -592,6 +518,7 @@ loadProcedureArgs([Arg | CallArgs], [byValueArg(Var) | ProcArgs], Code, [ArgPos 
 loadProcedureArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], Code, [doNothing | ArgsAdresses]) :-
 	loadProcedureArgs(CallArgs, ProcArgs, Code, ArgsAdresses).
 
+% zamiana wszystkich argumentów byName w AST procedury
 replaceByNameArgs([], [], P, P) :- !.
 replaceByNameArgs([Arg | CallArgs], [byNameArg(Var) | ProcArgs], CurrentProc, ResultProc) :-
 	replace(CurrentProc, Proc, var(Var), Arg), !,
@@ -606,7 +533,7 @@ without_last([X|Xs], [X|WithoutLast]) :-
 
 % predykat znajduje w słowniku klucz lub klucz który jest 
 % najdłuszym prefiksem tego klucza i konkatenacją ostatniego członu
-
+% czyli jak w słowniku są klucze {a|b|c, a|c} i szukamy klucza a|b|d|c to zwróci nam wartość pod kluczem a|b|c
 getMatchedFromDict(Key, Dict, Value) :-
 	Value = Dict.get(Key), !.
 
@@ -622,19 +549,12 @@ getMatchedFromDict(Key, Dict, Value) :-
 	getMatchedFromDict(NextKey, Dict, Value).
 
 encode(proc_call(Name, CallArgs), Code, ProcDecls) :-
-	print("PROC CALL name: "), nl, print(Name), nl,
-	%% getFromDict(Name, ProcDecls, Val).
 	getMatchedFromDict(Name, ProcDecls, (ProcArgs, Proc)),
-	%% (ProcArgs, Proc) = ProcDecls.get(Name),
 	encodeProcedureArgs(CallArgs, ProcArgs, EncodeCmdsTemp, ArgsAdresses, ProcDecls),
 	loadProcedureArgs(CallArgs, ProcArgs, LoadCmdsTemp, ArgsAdresses),
 	append(EncodeCmdsTemp, LoadCmdsTemp, LoadCmds),
 
 	replaceByNameArgs(CallArgs, ProcArgs, Proc, ResultProc),
-	
-	print("proc:"), nl, print(Proc), nl,
-	print("ResultProc: "), nl, print(ResultProc), nl,
-	print("LoadCmds: "), nl, print(LoadCmds), nl,
 
 	encode(ResultProc, ProcCmds, ProcDecls),
 	(
@@ -644,18 +564,15 @@ encode(proc_call(Name, CallArgs), Code, ProcDecls) :-
 		append(ProcCmdsReplaced, [swapd], Cmds),
 		append(LoadCmds, Cmds, Code);
 		append(ProcCmds, [const, 0], Cmds), 
-		append(LoadCmds, Cmds, Code),
-		print("LOAD O at ProcEnd"), nl
+		append(LoadCmds, Cmds, Code)
 	).
-
-	%% append(ProcCmds, [swapd], Code).
-	%% atom_concat(Name, 'end', LabelName),
-	%% print("proc call:"), nl, print(Name), nl, print(Args), nl.
-
 
 encode(retr(Expr), Code, ProcDecls) :-
 	encode(Expr, ExprCode, ProcDecls),
 	append(ExprCode, [swapd, const, labelPos(jumpProcEnd), jump], Code).
+
+encode(call(Expr), Code, ProcDecls) :- encode(Expr, Code, ProcDecls).
+
 %% OPERATORY RELACYJNE %%
 
 % Oblicz L - R w ACC
@@ -671,10 +588,6 @@ encode(=(L, R), Code, ProcDecls) :-
 	encode(<>(L, R), Cmds, ProcDecls),
 	negateACC(Neg),
 	append(Cmds, Neg, Code).
-	%% arithm_encode(L, R, sub, Cmds),
-	%% negativeNumber(1, MinusOne),
-	%% append(Cmds, [swapd, const, currPos(10), swapa, swapd, branchz, const, 0, swapd, const, currPos(5), jump,
-	%% 					const, MinusOne, swapd, swapd], Code).
 
 % Oblicz L - R,
 % Jeśli ACC < 0 to przeskocz ustawianie ACC na 0 (ACC < 0 to true)
@@ -725,4 +638,3 @@ encode(not(Expr), Code, ProcDecls) :-
 
 encode(or(L, R), Code, ProcDecls) :- encode(<((L + R), num(0)), Code, ProcDecls).
 % nie będzie 'and' do enkodowania bo: L and R jest zamieniane w parserze na not(not(L) or not(R))
-
