@@ -1,38 +1,31 @@
 "
-program powerproc
-    local x, y, z
-   
-    procedure power(value a, value b)
-        procedure multiply(value aa, value bb)
-        local var_1, var_2
-        begin
-            var_1 := aa;
-            var_2 := bb;
-            return var_1 * var_2
-        end
-       
-        local temp
-       
-    begin
-        temp := 1;
-        while b > 0
-        do
-            temp := multiply(temp, a);
-            b := b - 1
-        done;
-        return temp
-    end
-   
-   
- 
+program test_logic
 begin
-    read x;
-    while x <> 0
-    do
-        read y;
-        write power(x, y);
-        read x
-    done
+  if  1 <  0 then write  -1 else write   1 fi;
+  if  1 <= 0 then write  -2 else write   2 fi;
+  if  1 <> 0 then write   3 else write  -3 fi;
+  if  1 =  0 then write  -4 else write   4 fi;
+  if  1 >  0 then write   5 else write  -5 fi;
+  if  1 >= 0 then write   6 else write  -6 fi;
+  if  1 <  1 then write  -7 else write   7 fi;
+  if  1 <= 1 then write   8 else write  -8 fi;
+  if  1 <> 1 then write  -9 else write   9 fi;
+  if  1 =  1 then write  10 else write -10 fi;
+  if  1 >  1 then write -11 else write  11 fi;
+  if  1 >= 1 then write  12 else write -12 fi;
+  if -1 <  0 then write  13 else write -13 fi;
+  if -1 <= 0 then write  14 else write -14 fi;
+  if -1 <> 0 then write  15 else write -15 fi;
+  if -1 =  0 then write -16 else write  16 fi;
+  if -1 >  0 then write -17 else write  17 fi;
+  if -1 >= 0 then write -18 else write  18 fi;
+  if 1 < 0 and 1 < 0 then write -19 else write  19 fi;
+  if 1 < 0 and 1 > 0 then write -20 else write  20 fi;
+  if 1 > 0 and 1 < 0 then write -21 else write  21 fi;
+  if 1 > 0 and 1 > 0 then write  22 else write -22 fi;
+  if 1 < 0 or  1 < 0 then write -23 else write  23 fi;
+  if 1 < 0 or  1 > 0 then write  24 else write -24 fi;
+  if 1 > 0 or  1 < 0 then write  24 else write -24 fi;
+  if 1 > 0 or  1 > 0 then write  25 else write -25 fi
 end
-
 ".

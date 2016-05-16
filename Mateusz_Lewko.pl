@@ -6,6 +6,7 @@
 % 
 % predykat do wczytywania z pliku: compileFile, (plik musi zawierać kod w następujacej postaci: "<kod programu>". 
 % czyli w cudzysłowie i z kropką na końcu)
+%
 % Błędy: 
 %		1) czasami nie działają komentarze, tzn jeśli nie ma spacji przed i po (* oraz *)
 %			jezeli predykat zwaraca false nawet po sformatowaniu komentarzy, to proszę spróbować usunąć komentarze
@@ -462,8 +463,8 @@ encode(if(Bool, ThenPart, ElsePart), Code, ProcDecls) :-  !,
 	length(ThenCmds, ThenCnt),
 
 	append(BoolTempCmds, [swapd, const, currPos(4 + ThenCnt), swapa, swapd, branchz], BoolCmds),
-	append(BoolCmds, [ThenCmds, ElseCmds], TempCode),
-	append(TempCode, Code).
+	append(BoolCmds, ThenCmds, TempCode),
+	append(TempCode, ElseCmds, Code).
 
 encode(if(Bool, ThenPart), Code, ProcDecls) :-
 	encode(Bool, BoolTempCmds, ProcDecls),	
@@ -573,6 +574,7 @@ encode(retr(Expr), Code, ProcDecls) :-
 
 encode(call(Expr), Code, ProcDecls) :- encode(Expr, Code, ProcDecls).
 
+
 %% OPERATORY RELACYJNE %%
 
 % Oblicz L - R w ACC
@@ -626,6 +628,7 @@ encode(L - R, Code, ProcDecls) :- arithm_encode(L, R, sub, Code, ProcDecls).
 encode(div(L, R), Code, ProcDecls) :- arithm_encode(L, R, div, Code, ProcDecls).
 encode(L * R, Code, ProcDecls) :- arithm_encode(L, R, mul, Code, ProcDecls).
 encode(mod(L, R), Code, ProcDecls) :- encode(L - (div(L, R) * R), Code, ProcDecls).
+
 
 %% OPERATORY LOGICZNE %%
 
